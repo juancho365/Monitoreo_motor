@@ -1,187 +1,1382 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siemens Monitor - Mantenimiento Predictivo</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        :root {
-            --bg-industrial: #1a1d20;
-            --card-bg: #212529;
-            --siemens-blue: #00ffcc; /* Color técnico brillante */
-        }
-        body { background-color: var(--bg-industrial); color: #e9ecef; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-       .card { background-color: var(--card-bg); border: 1px solid #343a40; border-radius: 12px; }
-       .text-siemens { color: var(--siemens-blue); }
-       .data-huge { font-size: 3rem; font-weight: bold; line-height: 1; }
-       .status-indicator { width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-       .bg-ok { background-color: #28a745; box-shadow: 0 0 10px #28a745; }
-       .bg-warn { background-color: #ffc107; box-shadow: 0 0 10px #ffc107; }
-       .bg-crit { background-color: #dc3545; box-shadow: 0 0 10px #dc3545; }
-        iframe { border-radius: 8px; filter: invert(90%) hue-rotate(180deg); } /* Efecto Dark Mode para el chart */
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOTOR GUARD · Sistema de Monitoreo Industrial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #070b0f;
+  --surface: #0d1117;
+  --surface2: #111820;
+  --border: rgba(0,210,255,0.12);
+  --border-bright: rgba(0,210,255,0.35);
+  --cyan: #00d2ff;
+  --cyan-dim: rgba(0,210,255,0.6);
+  --amber: #ffb300;
+  --red: #ff3b30;
+  --green: #00e676;
+  --text: #c8d8e8;
+  --text-dim: #4a6070;
+  --text-bright: #e8f4ff;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+  pointer-events: none; z-index: 1000;
+}
+
+/* Grid background */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,210,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,210,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ===== TOP NAVBAR ===== */
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem;
+  height: 56px;
+  background: rgba(7,11,15,0.95);
+  border-bottom: 1px solid var(--border-bright);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.nav-logo {
+  width: 32px; height: 32px;
+  border: 2px solid var(--cyan);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 900;
+  color: var(--cyan);
+  font-size: 14px;
+  box-shadow: 0 0 12px rgba(0,210,255,0.3), inset 0 0 12px rgba(0,210,255,0.05);
+  animation: logo-pulse 3s ease-in-out infinite;
+}
+
+@keyframes logo-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(0,210,255,0.3), inset 0 0 12px rgba(0,210,255,0.05); }
+  50% { box-shadow: 0 0 24px rgba(0,210,255,0.6), inset 0 0 16px rgba(0,210,255,0.1); }
+}
+
+.nav-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--text-bright);
+  text-transform: uppercase;
+}
+
+.nav-title span { color: var(--cyan); }
+
+.nav-right {
+  display: flex; align-items: center; gap: 20px;
+}
+
+.lora-status {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+
+.dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.dot.crit { background: var(--red); box-shadow: 0 0 6px var(--red); animation: blink-fast 0.5s ease-in-out infinite; }
+
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes blink-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+#clock {
+  font-family: var(--font-mono); font-size: 13px;
+  color: var(--cyan-dim); letter-spacing: 2px;
+}
+
+/* ===== MAIN LAYOUT ===== */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem;
+}
+
+/* ===== MOTOR ID BANNER ===== */
+.motor-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(90deg, rgba(0,210,255,0.05), transparent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.motor-id {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.motor-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: 1px;
+}
+
+.motor-specs {
+  display: flex; gap: 24px;
+}
+
+.spec-item {
+  text-align: center;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+}
+
+.spec-item strong {
+  display: block;
+  font-size: 14px; color: var(--text); letter-spacing: 1px;
+}
+
+/* ===== GRID LAYOUT ===== */
+.grid-top {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grid-mid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grid-bot {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+/* ===== BASE CARD ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.card:hover::before { opacity: 1; }
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.card-badge {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+}
+
+.card-body { padding: 1rem; }
+
+/* ===== KPI CARDS ===== */
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.kpi-unit {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+.kpi-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+.kpi-bar-track {
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.kpi-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 2px 0 8px currentColor;
+}
+
+.c-cyan { color: var(--cyan); }
+.c-amber { color: var(--amber); }
+.c-red { color: var(--red); }
+.c-green { color: var(--green); }
+.c-white { color: var(--text-bright); }
+
+/* ===== HEALTH GAUGE ===== */
+.health-ring-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.5rem 0;
+}
+
+.health-ring-svg { overflow: visible; }
+
+.health-arc-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-linecap: round; }
+.health-arc-fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1), stroke 0.5s; }
+
+.health-value-text {
+  font-family: var(--font-display);
+  font-size: 2rem; font-weight: 900;
+  fill: var(--text-bright);
+  text-anchor: middle; dominant-baseline: middle;
+}
+
+.health-label-text {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  fill: var(--text-dim);
+  text-anchor: middle;
+  letter-spacing: 0.15em;
+}
+
+/* ===== LIFE EXPECTANCY ===== */
+.life-display {
+  text-align: center; padding: 0.5rem 0;
+}
+
+.life-years {
+  font-family: var(--font-display);
+  font-size: 4rem; font-weight: 900; line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 30px rgba(255,179,0,0.4);
+}
+
+.life-label {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+.life-bars {
+  display: flex; gap: 3px; margin-top: 12px;
+}
+
+.life-bar-seg {
+  flex: 1; height: 6px; border-radius: 1px;
+  background: rgba(255,255,255,0.08);
+  transition: background 0.5s;
+}
+
+.life-bar-seg.active { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+.life-bar-seg.low { background: var(--red); box-shadow: 0 0 4px var(--red); }
+
+/* ===== LORA SIGNAL ===== */
+.rssi-meter {
+  padding: 0.5rem 0;
+}
+
+.rssi-big {
+  font-family: var(--font-mono);
+  font-size: 2.2rem; font-weight: 400;
+  color: var(--green);
+  text-shadow: 0 0 20px rgba(0,230,118,0.4);
+  transition: color 0.5s, text-shadow 0.5s;
+}
+
+.rssi-bars {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 40px; margin: 12px 0 8px;
+}
+
+.rssi-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  background: rgba(255,255,255,0.08);
+  transition: background 0.5s;
+}
+
+.rssi-bar.lit { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.rssi-bar.warn-lit { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.rssi-bar.crit-lit { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+.rssi-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; color: var(--text-dim);
+  text-align: center;
+}
+
+/* ===== THERMAL CHART ===== */
+.chart-wrap {
+  padding: 0.5rem;
+  background: var(--surface2);
+  border-radius: 2px;
+}
+
+.chart-wrap iframe {
+  width: 100%;
+  border: none;
+  border-radius: 2px;
+  filter: invert(85%) hue-rotate(175deg) saturate(1.4);
+  display: block;
+}
+
+/* ===== ARRHENIUS MODULE ===== */
+.arrhenius-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.arr-stat {
+  padding: 0.75rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.arr-stat-label {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.arr-stat-val {
+  font-family: var(--font-display); font-size: 1.4rem;
+  font-weight: 700; color: var(--text-bright);
+}
+
+.arr-stat-val.danger { color: var(--red); }
+.arr-stat-val.warn { color: var(--amber); }
+.arr-stat-val.ok { color: var(--green); }
+
+.overheat-log {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono); font-size: 11px;
+}
+
+.log-row {
+  display: flex; justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  transition: background 0.2s;
+}
+
+.log-row:hover { background: rgba(0,210,255,0.03); }
+.log-row .log-val { color: var(--text); }
+.log-row .log-val.hot { color: var(--red); }
+
+/* ===== MAINTENANCE ===== */
+.maintenance-card .card-body { padding: 0.75rem 1rem; }
+
+.maint-timeline { margin: 0.5rem 0; }
+
+.maint-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px;
+}
+
+.maint-item:last-child { border-bottom: none; }
+
+.maint-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  margin-top: 3px; flex-shrink: 0;
+}
+
+.maint-date { color: var(--text-dim); }
+.maint-desc { color: var(--text); flex: 1; }
+
+.btn-industrial {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  border-radius: 2px;
+  color: var(--cyan);
+  font-family: var(--font-display);
+  font-size: 12px; font-weight: 600; letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  width: 100%; justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-industrial:hover {
+  background: rgba(0,210,255,0.08);
+  box-shadow: 0 0 12px rgba(0,210,255,0.2);
+}
+
+.btn-danger-ind {
+  border-color: rgba(255,59,48,0.5); color: var(--red);
+}
+
+.btn-danger-ind:hover {
+  background: rgba(255,59,48,0.08);
+  box-shadow: 0 0 12px rgba(255,59,48,0.3);
+}
+
+.btn-amber-ind {
+  border-color: rgba(255,179,0,0.5); color: var(--amber);
+}
+
+/* ===== ALERT BANNER ===== */
+.alert-banner {
+  display: none;
+  padding: 10px 1.5rem;
+  background: rgba(255,59,48,0.1);
+  border-bottom: 1px solid rgba(255,59,48,0.4);
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--red); letter-spacing: 1px;
+  align-items: center; gap: 12px;
+  animation: flash-bg 1s ease-in-out infinite;
+}
+
+@keyframes flash-bg {
+  0%, 100% { background: rgba(255,59,48,0.1); }
+  50% { background: rgba(255,59,48,0.18); }
+}
+
+/* ===== MODBUS STATUS ===== */
+.modbus-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px;
+}
+
+.modbus-reg { color: var(--text-dim); }
+.modbus-val { color: var(--cyan); }
+.modbus-status { 
+  font-size: 10px; padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.status-ok { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
+.status-warn { background: rgba(255,179,0,0.15); color: var(--amber); border: 1px solid rgba(255,179,0,0.3); }
+.status-err { background: rgba(255,59,48,0.15); color: var(--red); border: 1px solid rgba(255,59,48,0.3); }
+
+/* ===== FOOTER ===== */
+footer {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.footer-left {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); letter-spacing: 1px;
+}
+
+.footer-right {
+  display: flex; gap: 20px;
+}
+
+.footer-stat {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-dim); text-align: right;
+}
+
+.footer-stat strong { display: block; color: var(--text); font-size: 11px; }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 500; backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 2rem;
+  width: 420px;
+  box-shadow: 0 0 60px rgba(0,210,255,0.15);
+}
+
+.modal-title {
+  font-family: var(--font-display); font-size: 16px;
+  font-weight: 700; letter-spacing: 2px; color: var(--cyan);
+  text-transform: uppercase; margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-group { margin-bottom: 1rem; }
+
+.form-label {
+  display: block;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.form-control {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 8px 12px;
+  color: var(--text-bright);
+  font-family: var(--font-mono); font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-control:focus { border-color: var(--cyan); }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.modal-footer { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+
+/* ===== THINGSPEAK LIVE ===== */
+.ts-live { position: relative; }
+.ts-live-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--green); letter-spacing: 1px;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* Número animado */
+@keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.num-anim { animation: countUp 0.4s ease-out; }
+
+/* Tooltip */
+[data-tip] { position: relative; cursor: help; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text);
+  white-space: nowrap; border-radius: 2px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 99;
+}
+[data-tip]:hover::after { opacity: 1; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .grid-top { grid-template-columns: repeat(2,1fr); }
+  .grid-mid { grid-template-columns: 1fr 1fr; }
+  .grid-bot { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .grid-top, .grid-mid { grid-template-columns: 1fr; }
+  .motor-specs { display: none; }
+  .arrhenius-grid { grid-template-columns: 1fr; }
+}
+</style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark border-bottom border-secondary mb-4">
-    <div class="container">
-        <span class="navbar-brand mb-0 h1">
-            <i class="bi bi-shield-check text-siemens"></i> SIEMENS <span class="fw-light">Motor Guard v1.0</span>
-        </span>
-        <span class="badge border border-secondary text-secondary">
-            <span id="connStatus" class="status-indicator bg-ok"></span> LoRa Link Active
-        </span>
-    </div>
-</nav>
-
-<div class="container">
-    <div class="row g-4">
-        
-        <div class="col-md-3">
-            <div class="card p-3 shadow-sm h-100">
-                <h6 class="text-muted text-uppercase small">Temperatura PT100</h6>
-                <div class="d-flex align-items-end justify-content-between">
-                    <div id="tempVal" class="data-huge text-siemens">--</div>
-                    <span class="h4">°C</span>
-                </div>
-                <div class="progress mt-3" style="height: 5px; background: #333;">
-                    <div id="tempBar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card p-3 shadow-sm h-100">
-                <h6 class="text-muted text-uppercase small">Salud del Activo</h6>
-                <div id="healthScore" class="data-huge">--%</div>
-                <p id="healthStatus" class="small mt-2 mb-0">Calculando...</p>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card p-3 shadow-sm h-100">
-                <h6 class="text-muted text-uppercase small">Expectativa de Vida</h6>
-                <div id="lifeExpectancy" class="data-huge text-warning">--</div>
-                <p class="small mt-2 mb-0 text-muted">Años (Estimado térmico)</p>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card p-3 shadow-sm h-100">
-                <h6 class="text-muted text-uppercase small">Señal LoRa P2P</h6>
-                <div id="rssiVal" class="h2 mt-2">-- dBm</div>
-                <p id="rssiText" class="small text-success mb-0"><i class="bi bi-reception-4"></i> Conexión Estable</p>
-            </div>
-        </div>
-
-        <div class="col-lg-8">
-            <div class="card p-2 shadow">
-                <div class="d-flex justify-content-between p-2">
-                    <h5 class="mb-0">Histórico de Tendencia Térmica</h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i></button>
-                </div>
-                <div class="ratio ratio-21x9">
-                    <iframe src="https://thingspeak.com/channels/3278425/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"></iframe>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="card p-3 shadow mb-4">
-                <h5><i class="bi bi-tools"></i> Mantenimiento</h5>
-                <button class="btn btn-siemens-outline btn-outline-info w-100 mb-3" onclick="registrarMantenimiento()">
-                    <i class="bi bi-pencil-square"></i> Registrar Inspección
-                </button>
-                <div class="alert alert-dark border-secondary small">
-                    <strong>Último Servicio:</strong> <span id="lastServiceDate">01/03/2026</span><br>
-                    <strong>Técnico:</strong> Ing. Proyecto Grado
-                </div>
-            </div>
-
-            <div class="card p-3 shadow">
-                <h5><i class="bi bi-broadcast"></i> Acciones Remotas</h5>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-danger btn-sm" onclick="alert('Comando STOP enviado vía LoRa')">PARO EMERGENCIA</button>
-                    <button class="btn btn-secondary btn-sm" onclick="alert('Ventilación forzada activa')">ACTIVAR COOLER</button>
-                </div>
-            </div>
-        </div>
-
-    </div>
+<!-- ALERT BANNER -->
+<div class="alert-banner" id="alertBanner">
+  ⚠ &nbsp;<span id="alertText">TEMPERATURA CRÍTICA DETECTADA — VERIFICAR MOTOR INMEDIATAMENTE</span>
 </div>
 
-<footer class="mt-5 p-4 text-center text-muted small border-top border-secondary">
-    Proyecto de Grado - Monitoreo Industrial Modbus/LoRa - 2026
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">MG</div>
+    <div>
+      <div class="nav-title">MOTOR <span>GUARD</span></div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="lora-status">
+      <span class="dot" id="connDot"></span>
+      <span id="connLabel">LORA P2P · ACTIVO</span>
+    </div>
+    <div id="clock">--:--:--</div>
+  </div>
+</nav>
+
+<!-- MOTOR BANNER -->
+<div class="container">
+<div class="motor-banner">
+  <div>
+    <div class="motor-id">ASSET ID · MOT-001 · EDIFICIO A · PLANTA 1</div>
+    <div class="motor-name">Motor Eléctrico Siemens 1LA7 &nbsp;<span style="font-size:14px;color:var(--text-dim);font-weight:300">· 7.5 kW · 1450 RPM · IP55</span></div>
+  </div>
+  <div class="motor-specs">
+    <div class="spec-item"><strong>Clase F</strong>Aislamiento</div>
+    <div class="spec-item"><strong>155°C</strong>T. Máx</div>
+    <div class="spec-item"><strong>Modbus RTU</strong>Protocolo</div>
+    <div class="spec-item"><strong>915 MHz</strong>LoRa Band</div>
+    <div class="spec-item" id="uptime-spec"><strong>--</strong>Uptime</div>
+  </div>
+</div>
+
+<!-- TOP KPIs -->
+<div class="grid-top">
+
+  <!-- TEMPERATURA -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Temperatura PT100</span>
+      <span class="card-badge" id="tempClass">CL F · 155°C</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;align-items:flex-end;gap:4px">
+        <div class="kpi-value c-cyan" id="tempVal">--</div>
+        <span class="kpi-unit">°C</span>
+      </div>
+      <div class="kpi-sub" id="tempStatus">ADQUIRIENDO DATOS...</div>
+      <div class="kpi-bar-track">
+        <div class="kpi-bar-fill c-cyan" id="tempBar" style="width:0%;background:var(--cyan)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim)">
+        <span>0°C</span><span>77°C</span><span>155°C</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SALUD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Salud del Activo</span>
+      <span class="card-badge">PREDICTIVO</span>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;align-items:center">
+      <div class="health-ring-wrap">
+        <svg class="health-ring-svg" width="100" height="100" viewBox="0 0 100 100">
+          <circle class="health-arc-bg" cx="50" cy="50" r="40" stroke-width="7"/>
+          <circle class="health-arc-fill" id="healthArc" cx="50" cy="50" r="40" stroke-width="7"
+            stroke="var(--green)"
+            stroke-dasharray="251.2"
+            stroke-dashoffset="251.2"
+            transform="rotate(-90 50 50)"/>
+          <text class="health-value-text" id="healthText" x="50" y="48">--%</text>
+          <text class="health-label-text" x="50" y="62">HEALTH</text>
+        </svg>
+      </div>
+      <div class="kpi-sub" id="healthStatus" style="text-align:center;color:var(--text-dim)">CALCULANDO...</div>
+    </div>
+  </div>
+
+  <!-- VIDA ÚTIL -->
+  <div class="card" data-tip="Basado en Regla de Arrhenius: cada +10°C sobre nominal divide la vida por 2">
+    <div class="card-header">
+      <span class="card-title">Vida Útil Estimada</span>
+      <span class="card-badge">ARRHENIUS</span>
+    </div>
+    <div class="card-body">
+      <div class="life-display">
+        <div class="life-years" id="lifeYears">--</div>
+        <div class="life-label">AÑOS RESTANTES</div>
+        <div class="life-bars" id="lifeBars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RSSI LoRa -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Señal LoRa P2P</span>
+      <span class="card-badge">RSSI · SNR</span>
+    </div>
+    <div class="card-body">
+      <div class="rssi-meter">
+        <div class="rssi-big" id="rssiVal">-- dBm</div>
+        <div class="rssi-bars" id="rssiBars">
+          <div class="rssi-bar" style="height:20%"></div>
+          <div class="rssi-bar" style="height:35%"></div>
+          <div class="rssi-bar" style="height:50%"></div>
+          <div class="rssi-bar" style="height:65%"></div>
+          <div class="rssi-bar" style="height:80%"></div>
+          <div class="rssi-bar" style="height:95%"></div>
+        </div>
+        <div class="rssi-label" id="rssiLabel">ENLAZANDO...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MID ROW -->
+<div class="grid-mid">
+
+  <!-- MÓDULO ARRHENIUS DETALLADO -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Análisis Térmico · Arrhenius</span>
+      <span class="card-badge" id="arrBadge">EN LÍNEA</span>
+    </div>
+    <div class="card-body">
+      <div class="arrhenius-grid">
+        <div class="arr-stat" data-tip="Horas operando sobre 100°C en esta sesión">
+          <div class="arr-stat-label">HORAS &gt;100°C HOY</div>
+          <div class="arr-stat-val" id="hoursOver100">0.0 h</div>
+        </div>
+        <div class="arr-stat" data-tip="Porcentaje de vida consumida por exceso térmico">
+          <div class="arr-stat-label">VIDA CONSUMIDA</div>
+          <div class="arr-stat-val" id="lifeLost">0.00%</div>
+        </div>
+        <div class="arr-stat" data-tip="Temperatura promedio desde el último reinicio">
+          <div class="arr-stat-label">TEMP. PROMEDIO</div>
+          <div class="arr-stat-val" id="avgTemp">-- °C</div>
+        </div>
+        <div class="arr-stat" data-tip="Factor de aceleración de envejecimiento (Ea=0.9 eV)">
+          <div class="arr-stat-label">FACTOR ENVEJECIM.</div>
+          <div class="arr-stat-val" id="agingFactor">1.00×</div>
+        </div>
+      </div>
+      <div class="overheat-log" id="overheatLog">
+        <div class="log-row" style="border-bottom:1px solid var(--border-bright);color:var(--text-dim)">
+          <span>TIMESTAMP</span><span>TEMP</span><span>DURACIÓN</span><span>IMPACTO</span>
+        </div>
+        <!-- dinámico -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CANAL THINGSPEAK -->
+  <div class="card ts-live">
+    <div class="card-header">
+      <span class="card-title">Histórico Térmico · ThingSpeak</span>
+      <span class="card-badge">ÚLTIMAS 60 MUESTRAS</span>
+    </div>
+    <div class="chart-wrap" style="margin:8px;position:relative">
+      <iframe id="tsChart"
+        src="https://thingspeak.com/channels/3278425/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"
+        height="190"></iframe>
+      <div class="ts-live-badge"><span class="dot"></span> LIVE · 15s</div>
+    </div>
+    <div style="padding:8px 12px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--text-dim)">
+      <span>CANAL: 3278425</span>
+      <span>UPDATE: 15 SEG</span>
+      <span id="lastUpdate">SYNC: --:--</span>
+    </div>
+  </div>
+
+  <!-- ESTADO MODBUS -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Bus Modbus RTU · Registros</span>
+      <span class="card-badge" id="modbusBadge">SLAVE #01</span>
+    </div>
+    <div class="card-body" style="padding:0.5rem 1rem">
+      <div class="modbus-row">
+        <span class="modbus-reg">40001 · TEMP_PT100</span>
+        <span class="modbus-val" id="mb-temp">-- °C</span>
+        <span class="modbus-status status-ok" id="mb-temp-s">OK</span>
+      </div>
+      <div class="modbus-row">
+        <span class="modbus-reg">40002 · RSSI_LORA</span>
+        <span class="modbus-val" id="mb-rssi">-- dBm</span>
+        <span class="modbus-status status-ok" id="mb-rssi-s">OK</span>
+      </div>
+      <div class="modbus-row">
+        <span class="modbus-reg">40003 · HEALTH_IDX</span>
+        <span class="modbus-val" id="mb-health">-- %</span>
+        <span class="modbus-status status-ok" id="mb-health-s">OK</span>
+      </div>
+      <div class="modbus-row">
+        <span class="modbus-reg">40004 · LIFE_YEARS</span>
+        <span class="modbus-val" id="mb-life">-- yr</span>
+        <span class="modbus-status status-ok" id="mb-life-s">OK</span>
+      </div>
+      <div class="modbus-row">
+        <span class="modbus-reg">40005 · TX_COUNT</span>
+        <span class="modbus-val" id="mb-tx">0</span>
+        <span class="modbus-status status-ok">OK</span>
+      </div>
+      <div class="modbus-row" style="border-bottom:none">
+        <span class="modbus-reg">COIL · COOLER_ON</span>
+        <span class="modbus-val" id="mb-cooler">OFF</span>
+        <span class="modbus-status" id="mb-cooler-s" style="background:rgba(255,255,255,0.05);color:var(--text-dim);border:1px solid var(--border)">IDLE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM ROW -->
+<div class="grid-bot">
+
+  <!-- BITÁCORA + ACCIONES -->
+  <div class="card maintenance-card">
+    <div class="card-header">
+      <span class="card-title">Bitácora de Mantenimiento</span>
+      <span class="card-badge" id="maintCount">0 REGISTROS</span>
+    </div>
+    <div class="card-body">
+      <div id="maintLog" style="max-height:200px;overflow-y:auto">
+        <div class="maint-item">
+          <div class="maint-dot" style="background:var(--cyan)"></div>
+          <div>
+            <div class="maint-date">2026-03-01 · 08:00</div>
+            <div class="maint-desc">Inspección visual inicial — Rodamientos sin ruido — Ventilador limpio</div>
+          </div>
+          <span class="modbus-status status-ok">OK</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.75rem">
+        <button class="btn-industrial" onclick="openModal()">+ REGISTRAR</button>
+        <button class="btn-industrial btn-danger-ind" onclick="emergencyStop()">PARO EMERGENCIA</button>
+        <button class="btn-industrial btn-amber-ind" onclick="activateCooler()">ACTIVAR COOLER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL RESUMEN SISTEMA -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Resumen del Sistema</span>
+      <span class="card-badge">ONLINE</span>
+    </div>
+    <div class="card-body">
+      <div style="font-family:var(--font-mono);font-size:11px">
+        <div class="modbus-row">
+          <span class="modbus-reg">ESP32 · GATEWAY</span>
+          <span class="modbus-status status-ok">CONECTADO</span>
+        </div>
+        <div class="modbus-row">
+          <span class="modbus-reg">THINGSPEAK · CLOUD</span>
+          <span class="modbus-status status-ok" id="tsStatus">SYNC OK</span>
+        </div>
+        <div class="modbus-row">
+          <span class="modbus-reg">LORA · E32-915T</span>
+          <span class="modbus-status status-ok" id="loraStatus">ACTIVO</span>
+        </div>
+        <div class="modbus-row">
+          <span class="modbus-reg">SENSOR · PT100</span>
+          <span class="modbus-status status-ok" id="pt100Status">CALIBRADO</span>
+        </div>
+        <div class="modbus-row" style="border:none">
+          <span class="modbus-reg">PAQUETES TX</span>
+          <span class="modbus-val" id="txCount">0</span>
+        </div>
+      </div>
+      <div style="margin-top:1rem;padding:0.75rem;background:var(--surface2);border-radius:2px;border:1px solid var(--border)">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px">RECOMENDACIÓN IA</div>
+        <div style="font-family:var(--font-body);font-size:12px;color:var(--text);margin-top:6px;line-height:1.5" id="recommendation">
+          Esperando datos del sensor...
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    PROYECTO DE GRADO · MONITOREO INDUSTRIAL MODBUS/LoRa · 2026<br>
+    <span style="opacity:0.5">Sistema de Mantenimiento Predictivo Basado en IoT Industrial</span>
+  </div>
+  <div class="footer-right">
+    <div class="footer-stat">
+      <span>MUESTRAS</span>
+      <strong id="sampleCount">0</strong>
+    </div>
+    <div class="footer-stat">
+      <span>ALERTAS EMITIDAS</span>
+      <strong id="alertCount">0</strong>
+    </div>
+    <div class="footer-stat">
+      <span>TIEMPO ONLINE</span>
+      <strong id="onlineTime">00:00:00</strong>
+    </div>
+  </div>
 </footer>
 
+<!-- MODAL INSPECCIÓN -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-title">⚙ Registrar Inspección</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">FECHA</label>
+        <input class="form-control" type="date" id="mDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">HORA</label>
+        <input class="form-control" type="time" id="mTime">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">TÉCNICO RESPONSABLE</label>
+      <input class="form-control" type="text" id="mTech" placeholder="Ing. Apellido Nombre">
+    </div>
+    <div class="form-group">
+      <label class="form-label">TIPO DE INSPECCIÓN</label>
+      <select class="form-control" id="mType">
+        <option>Inspección Visual</option>
+        <option>Lubricación de Rodamientos</option>
+        <option>Limpieza de Ventilador</option>
+        <option>Medición de Vibración</option>
+        <option>Cambio de Rodamientos</option>
+        <option>Megado de Aislamiento</option>
+        <option>Revisión Conexiones Eléctricas</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">OBSERVACIONES</label>
+      <textarea class="form-control" id="mNotes" rows="3" placeholder="Estado del motor, anomalías detectadas..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">RESULTADO</label>
+      <select class="form-control" id="mResult">
+        <option value="ok">✔ Normal — Sin novedad</option>
+        <option value="warn">⚠ Requiere seguimiento</option>
+        <option value="err">✘ Anomalía detectada</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-industrial" onclick="saveInspection()" style="flex:2">GUARDAR REGISTRO</button>
+      <button class="btn-industrial btn-danger-ind" onclick="closeModal()" style="flex:1">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <script>
-    const CHANNEL_ID = '3278425';
-    const READ_KEY = ''; // Agrega tu clave si el canal es privado
+// ===== CONFIGURACIÓN =====
+const CHANNEL_ID = '3278425';
+const READ_KEY = '';
+const NOMINAL_TEMP = 60;
+const MAX_TEMP_CLASS_F = 155;
+const MOTOR_DESIGN_LIFE = 20; // años
 
-    async function fetchData() {
-        try {
-            const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${READ_KEY}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            
-            const temp = parseFloat(data.field1);
-            const rssi = parseInt(data.field2) |
+// ===== ESTADO =====
+let state = {
+  temp: null, rssi: -65,
+  samples: 0, alerts: 0,
+  startTime: Date.now(),
+  txCount: 0,
+  hoursOver100: 0,
+  lifeLostPct: 0,
+  tempHistory: [],
+  overheatLog: [],
+  lastAbove100: null,
+  coolerOn: false,
+  maintRecords: 1,
+};
 
-| -65; // Simulado si no hay field 2
+// ===== RELOJ =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('es-CO', {hour12:false});
+  const elapsed = Date.now() - state.startTime;
+  const h = String(Math.floor(elapsed/3600000)).padStart(2,'0');
+  const m = String(Math.floor((elapsed%3600000)/60000)).padStart(2,'0');
+  const s = String(Math.floor((elapsed%60000)/1000)).padStart(2,'0');
+  document.getElementById('onlineTime').textContent = `${h}:${m}:${s}`;
+  document.getElementById('uptime-spec').innerHTML = `<strong>${h}:${m}</strong>Uptime`;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
-            updateUI(temp, rssi);
-        } catch (e) {
-            console.error("Error de conexión", e);
-            document.getElementById('connStatus').className = 'status-indicator bg-crit';
-        }
+// ===== FETCH THINGSPEAK =====
+async function fetchData() {
+  try {
+    const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${READ_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const temp = parseFloat(data.field1);
+    const rssi = parseInt(data.field2) || simulateRSSI();
+
+    if (!isNaN(temp)) {
+      state.temp = temp;
+      state.rssi = rssi;
+      state.samples++;
+      state.txCount++;
+      state.tempHistory.push(temp);
+      if (state.tempHistory.length > 60) state.tempHistory.shift();
+
+      updateUI(temp, rssi);
+      updateArrhenius(temp);
+      document.getElementById('connDot').className = 'dot';
+      document.getElementById('connLabel').textContent = 'LORA P2P · ACTIVO';
     }
 
-    function updateUI(temp, rssi) {
-        // 1. Actualizar Temperatura
-        document.getElementById('tempVal').innerText = temp.toFixed(1);
-        const bar = document.getElementById('tempBar');
-        bar.style.width = (temp * 100 / 155) + "%"; // Base Clase F (155°C)
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent =
+      'SYNC: ' + now.toLocaleTimeString('es-CO',{hour12:false,hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    document.getElementById('connDot').className = 'dot crit';
+    document.getElementById('connLabel').textContent = 'SIN SEÑAL LoRa';
+    document.getElementById('tsStatus').textContent = 'ERROR';
+    document.getElementById('tsStatus').className = 'modbus-status status-err';
+  }
+}
 
-        // 2. Lógica de Salud (Mantenimiento Predictivo)
-        const health = document.getElementById('healthScore');
-        const hStatus = document.getElementById('healthStatus');
-        let score = 100 - ((temp - 40) * 1.5); // Algoritmo simple: degradación arriba de 40°C
-        score = Math.min(100, Math.max(0, score));
-        
-        health.innerText = score.toFixed(0) + "%";
-        if(score > 80) {
-            health.className = "data-huge text-success";
-            hStatus.innerText = "Operación Normal";
-        } else if(score > 50) {
-            health.className = "data-huge text-warning";
-            hStatus.innerText = "Mantenimiento Sugerido";
-        } else {
-            health.className = "data-huge text-danger";
-            hStatus.innerText = "Riesgo de Falla Inminente";
-        }
+// ===== SIMULACIÓN RSSI (si field2 vacío) =====
+function simulateRSSI() {
+  return -60 + Math.floor(Math.random() * 30 - 10);
+}
 
-        // 3. Regla de Arrhenius (Vida Útil)
-        // Por cada 10°C sobre la nominal, la vida cae a la mitad.
-        const life = document.getElementById('lifeExpectancy');
-        let years = 20 / Math.pow(2, (temp - 60) / 10);
-        life.innerText = years.toFixed(1);
+// ===== UPDATE UI =====
+function updateUI(temp, rssi) {
+  // --- TEMPERATURA ---
+  const tempPct = Math.min(100, (temp / MAX_TEMP_CLASS_F) * 100);
+  const tEl = document.getElementById('tempVal');
+  tEl.textContent = temp.toFixed(1);
+  tEl.className = 'kpi-value ' + (temp > 120 ? 'c-red' : temp > 90 ? 'c-amber' : 'c-cyan');
 
-        // 4. RSSI LoRa
-        document.getElementById('rssiVal').innerText = rssi + " dBm";
+  const bar = document.getElementById('tempBar');
+  bar.style.width = tempPct + '%';
+  bar.style.background = temp > 120 ? 'var(--red)' : temp > 90 ? 'var(--amber)' : 'var(--cyan)';
+  bar.style.boxShadow = `2px 0 8px ${temp > 120 ? 'var(--red)' : temp > 90 ? 'var(--amber)' : 'var(--cyan)'}`;
+
+  const tStatus = temp > 120 ? '⚠ TEMPERATURA CRÍTICA' : temp > 90 ? '△ TEMPERATURA ELEVADA' : '✓ TEMPERATURA NOMINAL';
+  document.getElementById('tempStatus').textContent = tStatus;
+  document.getElementById('tempStatus').style.color = temp > 120 ? 'var(--red)' : temp > 90 ? 'var(--amber)' : 'var(--green)';
+
+  // Modbus mirror
+  document.getElementById('mb-temp').textContent = temp.toFixed(1) + ' °C';
+  document.getElementById('mb-temp-s').textContent = temp > 120 ? 'CRIT' : temp > 90 ? 'WARN' : 'OK';
+  document.getElementById('mb-temp-s').className = 'modbus-status ' + (temp > 120 ? 'status-err' : temp > 90 ? 'status-warn' : 'status-ok');
+
+  // --- SALUD ---
+  let score = 100 - Math.max(0, (temp - 40) * 1.5);
+  score = Math.min(100, Math.max(0, score));
+  const arc = document.getElementById('healthArc');
+  const circ = 251.2;
+  arc.style.strokeDashoffset = circ - (circ * score / 100);
+  arc.style.stroke = score > 75 ? 'var(--green)' : score > 45 ? 'var(--amber)' : 'var(--red)';
+
+  const healthText = document.getElementById('healthText');
+  healthText.textContent = score.toFixed(0) + '%';
+  healthText.style.fill = score > 75 ? 'var(--green)' : score > 45 ? 'var(--amber)' : 'var(--red)';
+
+  const hStatus = document.getElementById('healthStatus');
+  if(score > 75) { hStatus.textContent = '✓ OPERACIÓN NORMAL'; hStatus.style.color = 'var(--green)'; }
+  else if(score > 45) { hStatus.textContent = '△ MANTENIMIENTO SUGERIDO'; hStatus.style.color = 'var(--amber)'; }
+  else { hStatus.textContent = '✘ RIESGO DE FALLA'; hStatus.style.color = 'var(--red)'; }
+
+  document.getElementById('mb-health').textContent = score.toFixed(0) + ' %';
+  document.getElementById('mb-health-s').textContent = score > 75 ? 'OK' : score > 45 ? 'WARN' : 'CRIT';
+  document.getElementById('mb-health-s').className = 'modbus-status ' + (score > 75 ? 'status-ok' : score > 45 ? 'status-warn' : 'status-err');
+
+  // --- VIDA ÚTIL (Arrhenius) ---
+  const years = Math.max(0, MOTOR_DESIGN_LIFE / Math.pow(2, (temp - NOMINAL_TEMP) / 10));
+  document.getElementById('lifeYears').textContent = years.toFixed(1);
+  document.getElementById('lifeYears').style.color = years > 12 ? 'var(--amber)' : years > 6 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('lifeYears').style.textShadow = years < 6 ? '0 0 30px rgba(255,59,48,0.5)' : '0 0 30px rgba(255,179,0,0.4)';
+
+  const bars = document.getElementById('lifeBars');
+  bars.innerHTML = '';
+  const segs = 20;
+  const activeSegs = Math.round((years / MOTOR_DESIGN_LIFE) * segs);
+  for(let i=0; i<segs; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'life-bar-seg' + (i < activeSegs ? (years < 5 ? ' low' : ' active') : '');
+    bars.appendChild(seg);
+  }
+
+  document.getElementById('mb-life').textContent = years.toFixed(1) + ' yr';
+  document.getElementById('mb-life-s').textContent = years > 10 ? 'OK' : years > 5 ? 'WARN' : 'CRIT';
+  document.getElementById('mb-life-s').className = 'modbus-status ' + (years > 10 ? 'status-ok' : years > 5 ? 'status-warn' : 'status-err');
+
+  // --- RSSI LoRa ---
+  updateRSSI(rssi);
+
+  // --- ALERTAS ---
+  if(temp > 120) {
+    state.alerts++;
+    document.getElementById('alertBanner').style.display = 'flex';
+    document.getElementById('alertText').textContent =
+      `⚠ TEMPERATURA CRÍTICA ${temp.toFixed(1)}°C — ${score.toFixed(0)}% SALUD — VERIFICAR MOTOR INMEDIATAMENTE`;
+    document.getElementById('connDot').className = 'dot crit';
+    document.getElementById('pt100Status').textContent = 'ALARMA';
+    document.getElementById('pt100Status').className = 'modbus-status status-err';
+  } else {
+    document.getElementById('alertBanner').style.display = 'none';
+    document.getElementById('pt100Status').textContent = 'CALIBRADO';
+    document.getElementById('pt100Status').className = 'modbus-status status-ok';
+  }
+
+  // --- CONTADORES ---
+  document.getElementById('sampleCount').textContent = state.samples;
+  document.getElementById('alertCount').textContent = state.alerts;
+  document.getElementById('txCount').textContent = state.txCount;
+  document.getElementById('mb-tx').textContent = state.txCount;
+
+  // --- RECOMENDACIÓN IA ---
+  updateRecommendation(temp, score, years);
+}
+
+// ===== RSSI VISUAL =====
+function updateRSSI(rssi) {
+  const el = document.getElementById('rssiVal');
+  el.textContent = rssi + ' dBm';
+
+  let quality, color, label;
+  if(rssi >= -60) { quality = 6; color = 'lit'; label = 'EXCELENTE · SEÑAL PERFECTA'; el.style.color='var(--green)'; el.style.textShadow='0 0 20px rgba(0,230,118,0.5)'; }
+  else if(rssi >= -75) { quality = 5; color = 'lit'; label = 'MUY BUENA · ENLACE ESTABLE'; el.style.color='var(--green)'; el.style.textShadow='0 0 15px rgba(0,230,118,0.3)'; }
+  else if(rssi >= -85) { quality = 4; color = 'warn-lit'; label = 'BUENA · COBERTURA NORMAL'; el.style.color='var(--amber)'; el.style.textShadow='0 0 12px rgba(255,179,0,0.3)'; }
+  else if(rssi >= -95) { quality = 3; color = 'warn-lit'; label = 'REGULAR · POSIBLES PÉRDIDAS'; el.style.color='var(--amber)'; el.style.textShadow='none'; }
+  else if(rssi >= -105) { quality = 2; color = 'crit-lit'; label = 'DÉBIL · RETRANSMISIONES'; el.style.color='var(--red)'; el.style.textShadow='0 0 10px rgba(255,59,48,0.3)'; }
+  else { quality = 1; color = 'crit-lit'; label = 'CRÍTICA · ENLACE INESTABLE'; el.style.color='var(--red)'; el.style.textShadow='0 0 15px rgba(255,59,48,0.5)'; }
+
+  document.getElementById('rssiLabel').textContent = label;
+  document.getElementById('mb-rssi').textContent = rssi + ' dBm';
+
+  const barsEl = document.getElementById('rssiBars');
+  const barEls = barsEl.querySelectorAll('.rssi-bar');
+  barEls.forEach((b, i) => {
+    b.className = 'rssi-bar' + (i < quality ? ' ' + color : '');
+  });
+
+  const loraStatusEl = document.getElementById('loraStatus');
+  if(quality >= 4) { loraStatusEl.textContent = 'ACTIVO'; loraStatusEl.className = 'modbus-status status-ok'; }
+  else if(quality >= 2) { loraStatusEl.textContent = 'DÉBIL'; loraStatusEl.className = 'modbus-status status-warn'; }
+  else { loraStatusEl.textContent = 'CRÍTICO'; loraStatusEl.className = 'modbus-status status-err'; }
+
+  document.getElementById('mb-rssi-s').textContent = quality >= 4 ? 'OK' : quality >= 2 ? 'WARN' : 'CRIT';
+  document.getElementById('mb-rssi-s').className = 'modbus-status ' + (quality >= 4 ? 'status-ok' : quality >= 2 ? 'status-warn' : 'status-err');
+
+  document.getElementById('connDot').className = 'dot' + (quality <= 1 ? ' crit' : quality <= 2 ? ' warn' : '');
+  document.getElementById('connLabel').textContent =
+    quality <= 1 ? 'LORA · SEÑAL CRÍTICA' :
+    quality <= 2 ? 'LORA · SEÑAL DÉBIL' : 'LORA P2P · ACTIVO';
+}
+
+// ===== MÓDULO ARRHENIUS =====
+const ARRHENIUS_Ea = 0.9; // eV
+const k_B = 8.617e-5; // eV/K
+const T_NOMINAL_K = NOMINAL_TEMP + 273.15;
+
+function updateArrhenius(temp) {
+  const T_K = temp + 273.15;
+  const AF = Math.exp((ARRHENIUS_Ea / k_B) * (1/T_NOMINAL_K - 1/T_K));
+  document.getElementById('agingFactor').textContent = AF.toFixed(2) + '×';
+  document.getElementById('agingFactor').className = 'arr-stat-val ' + (AF > 4 ? 'danger' : AF > 2 ? 'warn' : 'ok');
+
+  if(temp > 100) {
+    if(!state.lastAbove100) state.lastAbove100 = Date.now();
+    state.hoursOver100 += 15/(3600);
+    const lifeLostPerHour = 0.10; // 10% vida por hora > 100°C (simplificado)
+    state.lifeLostPct += (15/3600) * lifeLostPerHour * 100;
+    state.lifeLostPct = Math.min(state.lifeLostPct, 100);
+
+    if(state.overheatLog.length === 0 || Date.now() - (state.overheatLog[state.overheatLog.length-1]?._ts||0) > 60000) {
+      state.overheatLog.push({
+        _ts: Date.now(),
+        time: new Date().toLocaleTimeString('es-CO',{hour12:false}),
+        temp: temp.toFixed(1),
+        dur: state.hoursOver100.toFixed(2),
+        impact: state.lifeLostPct.toFixed(2)
+      });
+      if(state.overheatLog.length > 5) state.overheatLog.shift();
+      renderOverheatLog();
     }
+  } else {
+    state.lastAbove100 = null;
+  }
 
-    function registrarMantenimiento() {
-        const d = new Date().toLocaleDateString();
-        document.getElementById('lastServiceDate').innerText = d;
-        alert("Inspección guardada en bitácora digital local.");
-    }
+  const avg = state.tempHistory.length > 0
+    ? state.tempHistory.reduce((a,b)=>a+b,0)/state.tempHistory.length : temp;
 
-    // Actualización cada 15 seg (límite ThingSpeak)
-    setInterval(fetchData, 15000);
-    fetchData();
+  document.getElementById('hoursOver100').textContent = state.hoursOver100.toFixed(2) + ' h';
+  document.getElementById('hoursOver100').className = 'arr-stat-val ' + (state.hoursOver100 > 2 ? 'danger' : state.hoursOver100 > 0.5 ? 'warn' : 'ok');
+
+  document.getElementById('lifeLost').textContent = state.lifeLostPct.toFixed(3) + '%';
+  document.getElementById('lifeLost').className = 'arr-stat-val ' + (state.lifeLostPct > 5 ? 'danger' : state.lifeLostPct > 1 ? 'warn' : 'ok');
+
+  document.getElementById('avgTemp').textContent = avg.toFixed(1) + ' °C';
+  document.getElementById('avgTemp').className = 'arr-stat-val ' + (avg > 100 ? 'danger' : avg > 75 ? 'warn' : 'ok');
+}
+
+function renderOverheatLog() {
+  const container = document.getElementById('overheatLog');
+  const header = container.querySelector('.log-row');
+  container.innerHTML = '';
+  container.appendChild(header);
+  state.overheatLog.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.innerHTML = `<span>${e.time}</span><span class="log-val hot">${e.temp}°C</span><span>${e.dur}h</span><span class="log-val hot">-${e.impact}%</span>`;
+    container.appendChild(row);
+  });
+}
+
+// ===== RECOMENDACIÓN IA =====
+function updateRecommendation(temp, health, years) {
+  const el = document.getElementById('recommendation');
+  if(temp > 120) el.innerHTML = `<span style="color:var(--red)">🔴 PARO INMEDIATO RECOMENDADO.</span> Temperatura ${temp.toFixed(0)}°C excede límite crítico. Verificar ventilación y carga del motor.`;
+  else if(temp > 100) el.innerHTML = `<span style="color:var(--amber)">🟡 ALERTA TÉRMICA.</span> Operando sobre 100°C. Cada hora así consume ~10% de vida útil. Verificar carga y ambiente.`;
+  else if(health < 50) el.innerHTML = `<span style="color:var(--red)">🔴 MANTENIMIENTO URGENTE.</span> Índice de salud crítico. Programar intervención preventiva este ciclo.`;
+  else if(years < 5) el.innerHTML = `<span style="color:var(--amber)">🟡 PRÓXIMO A REEMPLAZO.</span> Vida útil estimada: ${years.toFixed(1)} años. Evaluar reemplazo en próxima parada programada.`;
+  else if(health < 80) el.innerHTML = `<span style="color:var(--amber)">🟡 MANTENIMIENTO SUGERIDO.</span> Realizar inspección preventiva. Verificar lubricación y alineación de rodamientos.`;
+  else el.innerHTML = `<span style="color:var(--green)">🟢 MOTOR EN CONDICIÓN ÓPTIMA.</span> Temperatura nominal (${temp.toFixed(0)}°C), salud ${health.toFixed(0)}%, vida estimada ${years.toFixed(1)} años.`;
+}
+
+// ===== MODAL =====
+function openModal() {
+  const now = new Date();
+  document.getElementById('mDate').value = now.toISOString().split('T')[0];
+  document.getElementById('mTime').value = now.toTimeString().slice(0,5);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function saveInspection() {
+  const date = document.getElementById('mDate').value;
+  const time = document.getElementById('mTime').value;
+  const tech = document.getElementById('mTech').value || 'Técnico';
+  const type = document.getElementById('mType').value;
+  const notes = document.getElementById('mNotes').value || 'Sin observaciones adicionales';
+  const result = document.getElementById('mResult').value;
+  const colors = { ok: 'var(--green)', warn: 'var(--amber)', err: 'var(--red)' };
+  const labels = { ok: 'OK', warn: 'WARN', err: 'FALLA' };
+  const cssClass = { ok: 'status-ok', warn: 'status-warn', err: 'status-err' };
+
+  const item = document.createElement('div');
+  item.className = 'maint-item';
+  item.innerHTML = `
+    <div class="maint-dot" style="background:${colors[result]}"></div>
+    <div>
+      <div class="maint-date">${date} · ${time} · ${tech}</div>
+      <div class="maint-desc">${type} — ${notes}</div>
+    </div>
+    <span class="modbus-status ${cssClass[result]}">${labels[result]}</span>
+  `;
+
+  document.getElementById('maintLog').appendChild(item);
+  state.maintRecords++;
+  document.getElementById('maintCount').textContent = state.maintRecords + ' REGISTROS';
+  closeModal();
+}
+
+// ===== ACCIONES REMOTAS =====
+function emergencyStop() {
+  if(confirm('⚠ CONFIRMAR PARO DE EMERGENCIA\n\nEsto enviará el comando STOP por LoRa al nodo ESP32.\n¿Continuar?')) {
+    document.getElementById('mb-cooler').textContent = 'E-STOP';
+    document.getElementById('mb-cooler-s').textContent = 'PARO';
+    document.getElementById('mb-cooler-s').className = 'modbus-status status-err';
+    const alertB = document.getElementById('alertBanner');
+    alertB.style.display = 'flex';
+    document.getElementById('alertText').textContent = '🛑 PARO DE EMERGENCIA ACTIVADO — Comando enviado vía LoRa al nodo sensor';
+  }
+}
+
+function activateCooler() {
+  state.coolerOn = !state.coolerOn;
+  const btn = event.target;
+  if(state.coolerOn) {
+    document.getElementById('mb-cooler').textContent = 'ON';
+    document.getElementById('mb-cooler-s').textContent = 'ACTIVO';
+    document.getElementById('mb-cooler-s').className = 'modbus-status status-ok';
+    btn.textContent = 'DESACTIVAR COOLER';
+  } else {
+    document.getElementById('mb-cooler').textContent = 'OFF';
+    document.getElementById('mb-cooler-s').textContent = 'IDLE';
+    document.getElementById('mb-cooler-s').className = 'modbus-status';
+    btn.textContent = 'ACTIVAR COOLER';
+  }
+}
+
+// ===== ARRANQUE =====
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if(e.target === this) closeModal();
+});
+
+// Inicializar barras de vida
+const initBars = document.getElementById('lifeBars');
+for(let i=0; i<20; i++) {
+  const seg = document.createElement('div');
+  seg.className = 'life-bar-seg';
+  initBars.appendChild(seg);
+}
+
+// Iniciar
+setInterval(fetchData, 15000);
+fetchData();
 </script>
-
 </body>
 </html>
