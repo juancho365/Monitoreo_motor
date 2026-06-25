@@ -1,0 +1,185 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <WiFi.h>
+#include <PubSubClient.h> // Librería para MQTT
+
+#define SLAVE_ID 1
+#define MY_ADDRESS 2
+
+// ===== CREDENCIALES WiFi =====
+const char* ssid = "FAMIILIA BOHORQUEZ";
+const char* password = "71092405626";
+
+// ===== CREDENCIALES MQTT THINGSPEAK =====
+// Estas las sacas de: Devices > MQTT > Add a new device en ThingSpeak
+const char* mqttUserName = "MgYCCTALKi08HzstARArACQ"; 
+const char* mqttPass     = "z92j1AhkN0Xt3yaSd5YNpMRJ";
+const char* clientID     = "MgYCCTALKi08HzstARArACQ";
+unsigned long myChannelID = 3278425; // Tu número de canal
+
+const char* server = "mqtt3.thingspeak.com"; // Broker oficial 
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+// ===== OLED =====
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define SDA_PIN 12
+#define SCL_PIN 13
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// ===== LoRa UART =====
+HardwareSerial lora(1);
+unsigned long lastQuery = 0;
+const unsigned long interval = 3000;
+
+// ===== Temporización MQTT =====
+unsigned long lastTSUpdate = 0;
+const unsigned long tsInterval = 2500; // 2.5s solicitado (Ojo: ThingSpeak Free limita a 15s)
+float ultimaTemperatura = 0.0;
+
+// ===== CRC16 MODBUS =====
+uint16_t modbusCRC(uint8_t *buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) { crc >>= 1; crc ^= 0xA001; }
+      else { crc >>= 1; }
+    }
+  }
+  return crc;
+}
+
+void mostrarTemperatura(float temp) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 10);
+  display.print("Temp:");
+  display.setTextSize(3);
+  display.setCursor(10, 35);
+  display.print(temp);
+  display.print("C");
+  display.display();
+}
+
+void enviarConsulta() {
+
+  uint8_t frame[8];
+
+  frame[0] = SLAVE_ID;
+  frame[1] = 0x03;
+  frame[2] = 0x00;
+  frame[3] = 0x00;
+  frame[4] = 0x00;
+  frame[5] = 0x01;
+
+  uint16_t crc = modbusCRC(frame, 6);
+  frame[6] = crc & 0xFF;
+  frame[7] = crc >> 8;
+
+  String payload = "";
+
+  for (int i = 0; i < 8; i++) {
+    if (frame[i] < 16) payload += "0";
+    payload += String(frame[i], HEX);
+  }
+
+  String cmd = "AT+SEND=" + String(SLAVE_ID) + "," +
+               String(payload.length()) + "," + payload;
+
+  lora.println(cmd);
+  Serial.println("Consulta enviada");
+}
+
+void reconnectMQTT() {
+  while (!mqttClient.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    if (mqttClient.connect(clientID, mqttUserName, mqttPass)) {
+      Serial.println("Conectado a MQTT ThingSpeak");
+    } else {
+      Serial.print("Fallo, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" reintentando en 5 segundos");
+      delay(5000);
+    }
+  }
+}
+
+void procesarRespuesta(String line) {
+
+  int first = line.indexOf(',');
+  int second = line.indexOf(',', first + 1);
+  int third = line.indexOf(',', second + 1);
+
+  String dataHex = line.substring(second + 1, third);
+
+  int len = dataHex.length() / 2;
+  uint8_t frame[64];
+
+  for (int i = 0; i < len; i++) {
+    String byteStr = dataHex.substring(i * 2, i * 2 + 2);
+    frame[i] = strtol(byteStr.c_str(), NULL, 16);
+  }
+
+  uint16_t crcRx = frame[len - 2] | (frame[len - 1] << 8);
+  uint16_t crcCalc = modbusCRC(frame, len - 2);
+
+  if (crcRx != crcCalc) {
+    Serial.println("CRC ERROR");
+    return;
+  }
+
+  if (frame[1] == 0x03 && frame[2] == 0x02) {
+    uint16_t temp = (frame[3] << 8) | frame[4];
+    float tempC = temp / 10.0;
+
+    Serial.print("Temperatura: ");
+    Serial.println(tempC);
+
+    mostrarTemperatura(tempC);
+    
+    ultimaTemperatura = tempC;  
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while (true);
+  
+  WiFi.begin(ssid, password);
+  while (WiFi.status()!= WL_CONNECTED) delay(500);
+  
+  mqttClient.setServer(server, 1883); // Puerto MQTT estándar 
+  lora.begin(9600, SERIAL_8N1, 16, 17);
+}
+
+void loop() {
+  if (!mqttClient.connected()) reconnectMQTT();
+  mqttClient.loop();
+
+  if (millis() - lastQuery > interval) {
+    lastQuery = millis();
+    enviarConsulta();
+  }
+
+  if (lora.available()) {
+    String line = lora.readStringUntil('\n');
+    if (line.startsWith("+RCV=")) procesarRespuesta(line);
+  }
+
+  if (millis() - lastTSUpdate > tsInterval) {
+    lastTSUpdate = millis();
+    // Tópico de publicación oficial: channels/<channelID>/publish 
+    String topic = "channels/" + String(myChannelID) + "/publish";
+    String payload = "field1=" + String(ultimaTemperatura);
+    
+    mqttClient.publish(topic.c_str(), payload.c_str());
+    Serial.println("Datos enviados a ThingSpeak vía MQTT: " + payload);
+  }
+}

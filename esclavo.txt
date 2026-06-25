@@ -1,0 +1,34 @@
+#include <SoftwareSerial.h>
+
+// Pines LoRa
+#define LORA_RX 11
+#define LORA_TX 10
+SoftwareSerial lora(LORA_RX, LORA_TX);
+
+// Pin LM35
+#define LM35 A0
+
+void setup() {
+  Serial.begin(9600);
+  lora.begin(9600);
+  
+  Serial.println("ESCLAVO LISTO");
+}
+
+void loop() {
+  // Leer LM35 y convertir a temperatura
+  int valor = analogRead(LM35);
+  float temperatura = (valor * 5.0 * 100.0) / 1024.0;
+  
+  // Mostrar en monitor cada segundo
+  static unsigned long t = 0;
+  if (millis() - t > 1000) {
+    t = millis();
+    Serial.println(temperatura);
+  }
+  
+  // SIEMPRE enviar la temperatura por LoRa (sin esperar comando)
+  lora.println(temperatura);
+  
+  delay(2000); // Enviar cada 2 segundos
+}
