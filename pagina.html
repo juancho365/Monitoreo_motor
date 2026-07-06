@@ -595,23 +595,15 @@
 
         // Evaluar alarmas y cambiar el LED del Header y Tabla Modbus
         function evaluateSystemStatus(currentTemp) {
-            const statusDot = document.getElementById('global-status-dot');
-            const statusText = document.getElementById('global-status-text');
             const modbusStatus = document.getElementById('modbus-40003');
 
             if (currentTemp >= currentThreshold) {
-                statusDot.style.backgroundColor = 'var(--danger)';
-                statusText.innerText = "ESTADO: ALERTA CRÍTICA";
                 modbusStatus.innerText = "3";
                 return true;
             } else if (currentTemp >= (currentThreshold - 5)) {
-                statusDot.style.backgroundColor = 'var(--warning)';
-                statusText.innerText = "ESTADO: PRE-ALERTA";
                 modbusStatus.innerText = "2";
                 return false;
             } else {
-                statusDot.style.backgroundColor = 'var(--success)';
-                statusText.innerText = "ESTADO: NOMINAL";
                 modbusStatus.innerText = "1";
                 return false;
             }
@@ -674,13 +666,34 @@
                     
                     let fullTimeStr = new Date(latestFeed.created_at).toTimeString().split(' ')[0];
 
+                    // --- LÓGICA DE ESTADO DE CONEXIÓN REAL ---
+                    const feedTime = new Date(latestFeed.created_at).getTime();
+                    const currentTime = new Date().getTime();
+                    const timeDiffSeconds = (currentTime - feedTime) / 1000; // Diferencia en segundos
+
+                    const cloudStatusKpi = document.getElementById('kpi-cloud-status');
+                    const globalStatusDot = document.getElementById('global-status-dot');
+                    const globalStatusText = document.getElementById('global-status-text');
+
+                    // Si la diferencia es mayor a 45 segundos, asumimos desconexión
+                    if (timeDiffSeconds > 45) {
+                        cloudStatusKpi.innerText = "OFFLINE (TIMEOUT)";
+                        cloudStatusKpi.style.color = "var(--danger)";
+                        
+                        globalStatusDot.style.backgroundColor = 'var(--danger)';
+                        globalStatusText.innerText = "ESTADO: DESCONECTADO (REVISAR MAESTRO)";
+                    } else {
+                        cloudStatusKpi.innerText = "ONLINE";
+                        cloudStatusKpi.style.color = "var(--success)";
+                        
+                        globalStatusDot.style.backgroundColor = 'var(--success)';
+                        globalStatusText.innerText = "ESTADO: SINCRONIZADO";
+                    }
+
                     // 1. Actualizar Tarjetas KPI
                     document.getElementById('kpi-temp').innerText = `${currentTemp.toFixed(1)} °C`;
                     document.getElementById('kpi-rssi').innerText = `${currentRssi} dBm`;
                     document.getElementById('ts-last-sync').innerText = fullTimeStr;
-                    
-                    document.getElementById('kpi-cloud-status').innerText = "ONLINE";
-                    document.getElementById('kpi-cloud-status').style.color = "var(--success)";
 
                     // 2. Actualizar Tabla Modbus
                     document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
@@ -688,14 +701,20 @@
 
                     // 3. Evaluar lógica industrial y repintar gráfica
                     let isCritical = evaluateSystemStatus(currentTemp);
+                    
+                    // Si hay timeout crítico por desconexión, forzamos alerta de red, 
+                    // de lo contrario repintamos normal
                     renderChart();
                     
-                    // 4. Escribir logs
-                    addLog(`[ThingSpeak HTTP GET] OK. Muestras leídas con éxito.`, "cloud");
-                    addLog(`Registros actualizados -> Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`);
+                    // 4. Escribir logs condicionales
+                    if(timeDiffSeconds > 45) {
+                        addLog(`ALERTA RED: Pérdida de comunicación con el Gateway. Último dato hace ${Math.round(timeDiffSeconds)}s`, 'danger');
+                    } else {
+                        addLog(`[ThingSpeak HTTP GET] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
+                    }
                     
-                    if (isCritical) {
-                        addLog(`ALERTA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
+                    if (isCritical && timeDiffSeconds <= 45) {
+                        addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
                     }
                 } else {
                     addLog("El canal de ThingSpeak está vacío o no tiene datos recientes.", "warn");
@@ -719,7 +738,6 @@
             // Primera lectura inmediata
             readRealDataFromThingSpeak();
             
-            // ThingSpeak permite peticiones gratuitas cada 15 segundos. 
             // Configuramos el temporizador a 15000 ms = 15 segundos.
             setInterval(() => {
                 readRealDataFromThingSpeak();
