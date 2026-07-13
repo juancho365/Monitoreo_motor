@@ -516,6 +516,9 @@
         // ====================================================================
         // PETICIÓN A FIREBASE CON RELOJ CORREGIDO
         // ====================================================================
+       // ====================================================================
+        // PETICIÓN A FIREBASE CON RELOJ CORREGIDO Y DETECCIÓN DE DESCONEXIÓN
+        // ====================================================================
         function readRealDataFromFirebase() {
             fetch(FIREBASE_URL)
             .then(response => response.json())
@@ -528,22 +531,28 @@
                     const now = new Date();
                     const totalRecords = keys.length;
                     
+                    // Solo guardamos en el historial los datos que NO sean errores (-999)
                     keys.forEach((key, index) => {
                         const record = data[key];
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
-                        historyData.push(tempValue);
                         
-                        let timeStr;
-                        if (record.timestamp) {
-                            timeStr = new Date(record.timestamp).toTimeString().substring(0, 8);
-                        } else {
-                            let timeOffset = (totalRecords - 1 - index) * samplingInterval * 1000;
-                            let calculatedTime = new Date(now.getTime() - timeOffset);
-                            timeStr = calculatedTime.toTimeString().substring(0, 8);
+                        // Si la temperatura es válida, la metemos a la gráfica
+                        if (tempValue > -100) {
+                            historyData.push(tempValue);
+                            
+                            let timeStr;
+                            if (record.timestamp) {
+                                timeStr = new Date(record.timestamp).toTimeString().substring(0, 8);
+                            } else {
+                                let timeOffset = (totalRecords - 1 - index) * samplingInterval * 1000;
+                                let calculatedTime = new Date(now.getTime() - timeOffset);
+                                timeStr = calculatedTime.toTimeString().substring(0, 8);
+                            }
+                            timeLabels.push(timeStr);
                         }
-                        timeLabels.push(timeStr);
                     });
 
+                    // Extraemos el último dato registrado para la interfaz
                     const lastKey = keys[keys.length - 1];
                     const latestData = data[lastKey];
                     
@@ -551,28 +560,61 @@
                     let currentRssi = parseInt(latestData.rssi || latestData.field2) || -80;
                     let fullTimeStr = new Date().toTimeString().split(' ')[0]; 
 
+                    // Elementos de la interfaz a modificar
                     const cloudStatusKpi = document.getElementById('kpi-cloud-status');
                     const globalStatusDot = document.getElementById('global-status-dot');
                     const globalStatusText = document.getElementById('global-status-text');
+                    const kpiTemp = document.getElementById('kpi-temp');
 
-                    cloudStatusKpi.innerText = "CONECTADO";
-                    cloudStatusKpi.style.color = "var(--success)";
-                    globalStatusDot.style.backgroundColor = 'var(--success)';
-                    globalStatusText.innerText = "ESTADO: SINCRONIZADO CON GOOGLE FIREBASE";
                     document.getElementById('fb-last-sync').innerText = fullTimeStr;
-
-                    document.getElementById('kpi-temp').innerText = `${currentTemp.toFixed(1)} °C`;
                     document.getElementById('kpi-rssi').innerText = `${currentRssi} dBm`;
-                    document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
                     document.getElementById('modbus-40002').innerText = currentRssi;
 
-                    let isCritical = evaluateSystemStatus(currentTemp);
-                    renderChart();
-                    calcularPrediccion();
-                    
-                    addLog(`[Firebase REST API] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
-                    if (isCritical) {
-                        addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
+                    // =================================================================
+                    // LÓGICA DE DETECCIÓN DE ESCLAVO DESCONECTADO (-999)
+                    // =================================================================
+                    if (currentTemp <= -100) {
+                        // MODO ERROR: Esclavo desconectado
+                        globalStatusDot.style.backgroundColor = 'var(--danger)';
+                        globalStatusText.innerText = "ALERTA: ESCLAVO MODBUS DESCONECTADO";
+                        globalStatusText.style.color = "var(--danger)";
+                        globalStatusText.style.fontWeight = "bold";
+                        
+                        cloudStatusKpi.innerText = "DATOS INVÁLIDOS";
+                        cloudStatusKpi.style.color = "var(--warning)";
+
+                        kpiTemp.innerText = "ERROR";
+                        kpiTemp.style.color = "var(--danger)";
+                        
+                        document.getElementById('modbus-40001').innerText = "Fallo de Lectura";
+                        document.getElementById('modbus-40003').innerText = "ERROR COMUNICACIÓN";
+                        
+                        addLog(`¡ALERTA CRÍTICA! Se perdió comunicación con el esclavo Modbus.`, 'danger');
+                        
+                    } else {
+                        // MODO NORMAL: Todo funcionando bien
+                        globalStatusDot.style.backgroundColor = 'var(--success)';
+                        globalStatusText.innerText = "ESTADO: SINCRONIZADO CON GOOGLE FIREBASE";
+                        globalStatusText.style.color = "inherit";
+                        globalStatusText.style.fontWeight = "normal";
+
+                        cloudStatusKpi.innerText = "CONECTADO";
+                        cloudStatusKpi.style.color = "var(--success)";
+
+                        kpiTemp.innerText = `${currentTemp.toFixed(1)} °C`;
+                        kpiTemp.style.color = "var(--text-primary)";
+                        
+                        document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
+
+                        // Evaluar lógica, dibujar gráfica y predecir SOLO si hay datos válidos
+                        let isCritical = evaluateSystemStatus(currentTemp);
+                        renderChart();
+                        calcularPrediccion();
+                        
+                        addLog(`[Firebase REST API] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
+                        if (isCritical) {
+                            addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
+                        }
                     }
                 }
             })
@@ -584,17 +626,6 @@
                 document.getElementById('kpi-cloud-status').style.color = "var(--danger)";
             });
         }
-
-        window.onload = function() {
-            addLog("Inicializando sistema de monitoreo IoT...");
-            addLog(`Conectando al servidor Firebase RTDB...`, "cloud");
-            
-            readRealDataFromFirebase();
-            
-            setInterval(() => {
-                readRealDataFromFirebase();
-            }, samplingInterval * 1000); 
-        };
     </script>
 </body>
 </html>
