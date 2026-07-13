@@ -10,7 +10,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- LIBRERÍA CHART.JS PARA LA GRÁFICA DE LÍNEA CONTINUA -->
+   <!-- LIBRERÍA CHART.JS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- NUEVOS PLUGINS PARA ZOOM Y ARRASTRE -->
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <style>
         :root {
@@ -381,14 +386,17 @@
         // ====================================================================
         // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
         // ====================================================================
+        // ====================================================================
+        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA CON ZOOM Y PAN
+        // ====================================================================
         function renderChart() {
             const ctx = document.getElementById('myChart').getContext('2d');
             
-            // Mostrar los últimos 10 registros
-            const renderData = historyData.slice(-10);
-            const renderLabels = timeLabels.slice(-10);
+            // ¡CAMBIO!: Ya no limitamos a 10. Pasamos todo el historial para poder navegar.
+            const renderData = historyData;
+            const renderLabels = timeLabels;
 
-            // Determinar color de la línea según el umbral actual
+            // Determinar color de la línea según el umbral (basado en el dato más reciente)
             const lastTemp = renderData[renderData.length - 1] || 0;
             let lineColor = '#0284c7'; // Azul por defecto
             let bgColor = 'rgba(2, 132, 199, 0.1)';
@@ -401,24 +409,23 @@
                 bgColor = 'rgba(202, 138, 4, 0.1)';
             }
 
-            // Calcular el Zoom dinámico de la escala (Mínimo y Máximo actual)
             const minTemp = Math.min(...renderData);
             const maxTemp = Math.max(...renderData);
-            const dynamicMin = minTemp - 2; // Margen de 2 grados por debajo
-            const dynamicMax = Math.max(maxTemp + 2, currentThreshold + 2); // Margen superior asegurando que el umbral se vea
+            const dynamicMin = minTemp - 2; 
+            const dynamicMax = Math.max(maxTemp + 2, currentThreshold + 2); 
 
-            // Si la gráfica ya existe, actualizamos sus datos para que se mueva fluidamente
+            // Si la gráfica ya existe, actualizamos sus datos fluidamente
             if (myLineChart) {
                 myLineChart.data.labels = renderLabels;
                 myLineChart.data.datasets[0].data = renderData;
                 myLineChart.data.datasets[0].borderColor = lineColor;
                 myLineChart.data.datasets[0].backgroundColor = bgColor;
                 
-                // Actualizar la escala dinámicamente al nuevo "zoom"
                 myLineChart.options.scales.y.suggestedMin = dynamicMin;
                 myLineChart.options.scales.y.suggestedMax = dynamicMax;
 
-                myLineChart.update();
+                // Usamos 'none' para que la gráfica no reinicie tu zoom al llegar un nuevo dato
+                myLineChart.update('none'); 
             } else {
                 // Si no existe, la creamos por primera vez
                 myLineChart = new Chart(ctx, {
@@ -432,7 +439,7 @@
                             backgroundColor: bgColor,
                             borderWidth: 3,
                             fill: true, 
-                            tension: 0.4, // Curva suave y elegante
+                            tension: 0.4,
                             pointBackgroundColor: '#ffffff',
                             pointBorderColor: lineColor,
                             pointRadius: 4,
@@ -443,13 +450,32 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         animation: {
-                            duration: 400 // Animación suave al actualizar
+                            duration: 400 
                         },
                         scales: {
                             y: {
                                 beginAtZero: false,
                                 suggestedMin: dynamicMin, 
                                 suggestedMax: dynamicMax
+                            }
+                        },
+                        // ¡MAGIA!: Aquí se configura el plugin interactivo
+                        plugins: {
+                            zoom: {
+                                pan: {
+                                    enabled: true,
+                                    mode: 'x', // Arrastrar de izquierda a derecha
+                                    modifierKey: null, // Puedes poner 'shift' si quieres que requiera presionar esa tecla
+                                },
+                                zoom: {
+                                    wheel: {
+                                        enabled: true, // Habilita el zoom con la rueda
+                                    },
+                                    pinch: {
+                                        enabled: true // Zoom táctil en celulares (pellizcar)
+                                    },
+                                    mode: 'x', // Zoom solo en el eje del tiempo
+                                }
                             }
                         }
                     }
