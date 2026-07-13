@@ -378,6 +378,9 @@
         // ====================================================================
         // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
         // ====================================================================
+        // ====================================================================
+        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
+        // ====================================================================
         function renderChart() {
             const ctx = document.getElementById('myChart').getContext('2d');
             
@@ -398,12 +401,23 @@
                 bgColor = 'rgba(202, 138, 4, 0.1)';
             }
 
+            // Calcular el Zoom dinámico de la escala (Mínimo y Máximo actual)
+            const minTemp = Math.min(...renderData);
+            const maxTemp = Math.max(...renderData);
+            const dynamicMin = minTemp - 2; // Margen de 2 grados por debajo
+            const dynamicMax = Math.max(maxTemp + 2, currentThreshold + 2); // Margen superior asegurando que el umbral se vea
+
             // Si la gráfica ya existe, actualizamos sus datos para que se mueva fluidamente
             if (myLineChart) {
                 myLineChart.data.labels = renderLabels;
                 myLineChart.data.datasets[0].data = renderData;
                 myLineChart.data.datasets[0].borderColor = lineColor;
                 myLineChart.data.datasets[0].backgroundColor = bgColor;
+                
+                // Actualizar la escala dinámicamente al nuevo "zoom"
+                myLineChart.options.scales.y.suggestedMin = dynamicMin;
+                myLineChart.options.scales.y.suggestedMax = dynamicMax;
+
                 myLineChart.update();
             } else {
                 // Si no existe, la creamos por primera vez
@@ -434,8 +448,8 @@
                         scales: {
                             y: {
                                 beginAtZero: false,
-                                suggestedMin: 20, // Rango mínimo sugerido
-                                suggestedMax: Math.max(currentThreshold + 10, 80) // Rango máximo dinámico
+                                suggestedMin: dynamicMin, 
+                                suggestedMax: dynamicMax
                             }
                         }
                     }
@@ -514,7 +528,7 @@
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         historyData.push(tempValue);
                         
-                        let timeStr = record.timestamp ? new Date(record.timestamp).toTimeString().substring(0, 5) : new Date().toTimeString().substring(0, 5);
+                        let timeStr = record.timestamp ? new Date(record.timestamp).toTimeString().substring(0, 8) : new Date().toTimeString().substring(0, 8);
                         timeLabels.push(timeStr);
                     });
 
