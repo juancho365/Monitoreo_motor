@@ -514,10 +514,7 @@
         }
 
         // ====================================================================
-        // PETICIÓN A FIREBASE CON RELOJ CORREGIDO
-        // ====================================================================
-       // ====================================================================
-        // PETICIÓN A FIREBASE CON RELOJ CORREGIDO Y DETECCIÓN DE DESCONEXIÓN
+        // PETICIÓN A FIREBASE CON DETECCIÓN DE DESCONEXIÓN (-999)
         // ====================================================================
         function readRealDataFromFirebase() {
             fetch(FIREBASE_URL)
@@ -626,6 +623,17 @@
                 document.getElementById('kpi-cloud-status').style.color = "var(--danger)";
             });
         }
+
+        // ====================================================================
+        // INICIO AUTOMÁTICO DEL SISTEMA
+        // ====================================================================
+        
+        // 1. Ejecutar inmediatamente al cargar la página
+        readRealDataFromFirebase();
+        
+        // 2. Programar la ejecución cíclica según el intervalo configurado
+        setInterval(readRealDataFromFirebase, samplingInterval * 1000);
+
     </script>
 </body>
 </html>
