@@ -538,6 +538,9 @@
         // ====================================================================
         // PETICIÓN A LA BASE DE DATOS DE FIREBASE
         // ====================================================================
+        // ====================================================================
+        // PETICIÓN A LA BASE DE DATOS DE FIREBASE (CON RELOJ CORREGIDO)
+        // ====================================================================
         function readRealDataFromFirebase() {
             fetch(FIREBASE_URL)
             .then(response => response.json())
@@ -548,13 +551,27 @@
 
                     const keys = Object.keys(data);
                     
-                    keys.forEach(key => {
+                    // ¡NUEVO!: Tomamos la hora exacta en la que llegan los datos
+                    const now = new Date();
+                    const totalRecords = keys.length;
+                    
+                    keys.forEach((key, index) => {
                         const record = data[key];
                         
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         historyData.push(tempValue);
                         
-                        let timeStr = record.timestamp ? new Date(record.timestamp).toTimeString().substring(0, 8) : new Date().toTimeString().substring(0, 8);
+                        // ¡LA MAGIA!: Calculamos el tiempo hacia atrás de forma precisa
+                        let timeStr;
+                        if (record.timestamp) {
+                            // Si en el futuro logras que la ESP32 mande la hora, usa esa
+                            timeStr = new Date(record.timestamp).toTimeString().substring(0, 8);
+                        } else {
+                            // Si no, restamos los segundos según la posición del dato en el historial
+                            let timeOffset = (totalRecords - 1 - index) * samplingInterval * 1000;
+                            let calculatedTime = new Date(now.getTime() - timeOffset);
+                            timeStr = calculatedTime.toTimeString().substring(0, 8);
+                        }
                         timeLabels.push(timeStr);
                     });
 
@@ -604,20 +621,6 @@
                 document.getElementById('kpi-cloud-status').style.color = "var(--danger)";
             });
         }
-
-        // Ejecutar funciones al arrancar la página
-        window.onload = function() {
-            addLog("Inicializando sistema de monitoreo IoT...");
-            addLog(`Conectando al servidor Firebase RTDB...`, "cloud");
-            
-            // Primera lectura inmediata
-            readRealDataFromFirebase();
-            
-            // Bucle de repetición
-            setInterval(() => {
-                readRealDataFromFirebase();
-            }, samplingInterval * 1000); 
-        };
     </script>
 </body>
 </html>
