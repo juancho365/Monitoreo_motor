@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- LIBRERÍA CHART.JS PARA LA GRÁFICA DE LÍNEA CONTINUA -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         :root {
             --bg-main: #f8fafc;
@@ -144,19 +148,6 @@
         .log-danger { color: #ef4444; }
         .log-predict { color: #c084fc; }
 
-        /* GRÁFICA LOCAL */
-        .chart-placeholder {
-            height: 280px; width: 100%; display: flex; align-items: flex-end; gap: 15px;
-            padding-top: 20px; border-bottom: 2px solid var(--border-color); border-left: 2px solid var(--border-color); position: relative;
-        }
-        .chart-bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
-        .chart-bar {
-            width: 100%; background-color: #bae6fd; border-top: 3px solid var(--primary);
-            border-radius: 4px 4px 0 0; transition: height 0.5s ease, background-color 0.3s; position: relative;
-        }
-        .chart-bar-value { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 600; color: var(--text-secondary); }
-        .chart-label { font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
-
         footer { background-color: #ffffff; border-top: 1px solid var(--border-color); padding: 15px; text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: auto; }
     </style>
 </head>
@@ -215,7 +206,10 @@
             </div>
 
             <div id="local-tab" class="tab-content active">
-                <div class="chart-placeholder" id="chart-container"></div>
+                <!-- NUEVO CONTENEDOR DE LA GRÁFICA DE LÍNEA CONTINUA -->
+                <div style="height: 280px; width: 100%; margin-top: 20px;">
+                    <canvas id="myChart"></canvas>
+                </div>
             </div>
 
             <div id="firebase-tab" class="tab-content">
@@ -312,8 +306,6 @@
         // ====================================================================
         // CONFIGURACIÓN DE FIREBASE (¡Reemplaza esta URL por la tuya!)
         // ====================================================================
-        // Pon el enlace que copiaste de tu Firebase, conservando el .json al final.
-        // Agregamos parámetros REST para traer solo los últimos 10 datos y no saturar la web.
         const FIREBASE_URL = "https://monitoreo-lora-default-rtdb.firebaseio.com/Nodo1.json?orderBy=\"$key\"&limitToLast=100";
         
         let currentThreshold = 75;
@@ -321,6 +313,9 @@
         
         let historyData = [];
         let timeLabels = [];
+        
+        // VARIABLE PARA LA GRÁFICA DE LÍNEAS
+        let myLineChart = null; 
 
         function switchTab(tabId, element) {
             const contents = document.querySelectorAll('.tab-content');
@@ -380,30 +375,72 @@
             }
         }
 
+        // ====================================================================
+        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
+        // ====================================================================
         function renderChart() {
-            const container = document.getElementById('chart-container');
-            container.innerHTML = '';
-            const maxTempInGraph = 155; 
+            const ctx = document.getElementById('myChart').getContext('2d');
+            
+            // Mostrar los últimos 10 registros
+            const renderData = historyData.slice(-10);
+            const renderLabels = timeLabels.slice(-10);
 
-            // Mostramos solo los últimos 8 registros en la gráfica para que se vea bien
-            const renderData = historyData.slice(-8);
-            const renderLabels = timeLabels.slice(-8);
+            // Determinar color de la línea según el umbral actual
+            const lastTemp = renderData[renderData.length - 1] || 0;
+            let lineColor = '#0284c7'; // Azul por defecto
+            let bgColor = 'rgba(2, 132, 199, 0.1)';
 
-            renderData.forEach((temp, index) => {
-                const heightPercentage = (temp / maxTempInGraph) * 100;
-                let barColor = 'var(--primary)';
-                if (temp >= currentThreshold) barColor = 'var(--danger)';
-                else if (temp >= (currentThreshold - 5)) barColor = 'var(--warning)';
+            if (lastTemp >= currentThreshold) {
+                lineColor = '#dc2626'; // Rojo (Crítico)
+                bgColor = 'rgba(220, 38, 38, 0.1)';
+            } else if (lastTemp >= (currentThreshold - 5)) {
+                lineColor = '#ca8a04'; // Amarillo (Advertencia)
+                bgColor = 'rgba(202, 138, 4, 0.1)';
+            }
 
-                container.innerHTML += `
-                    <div class="chart-bar-wrapper">
-                        <div class="chart-bar" style="height: ${heightPercentage}%; background-color: ${barColor}; border-top-color: ${barColor}">
-                            <span class="chart-bar-value">${temp.toFixed(1)}°C</span>
-                        </div>
-                        <span class="chart-label">${renderLabels[index]}</span>
-                    </div>
-                `;
-            });
+            // Si la gráfica ya existe, actualizamos sus datos para que se mueva fluidamente
+            if (myLineChart) {
+                myLineChart.data.labels = renderLabels;
+                myLineChart.data.datasets[0].data = renderData;
+                myLineChart.data.datasets[0].borderColor = lineColor;
+                myLineChart.data.datasets[0].backgroundColor = bgColor;
+                myLineChart.update();
+            } else {
+                // Si no existe, la creamos por primera vez
+                myLineChart = new Chart(ctx, {
+                    type: 'line', 
+                    data: {
+                        labels: renderLabels,
+                        datasets: [{
+                            label: 'Temperatura (°C)',
+                            data: renderData,
+                            borderColor: lineColor,
+                            backgroundColor: bgColor,
+                            borderWidth: 3,
+                            fill: true, 
+                            tension: 0.4, // Curva suave y elegante
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: lineColor,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 400 // Animación suave al actualizar
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                suggestedMin: 20, // Rango mínimo sugerido
+                                suggestedMax: Math.max(currentThreshold + 10, 80) // Rango máximo dinámico
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         // ====================================================================
@@ -413,7 +450,6 @@
             const predKpi = document.getElementById('kpi-prediction');
             const slopeDisplay = document.getElementById('pred-slope');
             
-            // Necesitamos al menos 3 datos para trazar una tendencia
             if(historyData.length < 3) {
                 predKpi.innerText = "CALCULANDO";
                 return;
@@ -422,9 +458,8 @@
             let n = historyData.length;
             let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
             
-            // El eje X es el tiempo (en intervalos). El eje Y es la temperatura.
             for(let i = 0; i < n; i++) {
-                let x = i * samplingInterval; // Segundos transcurridos
+                let x = i * samplingInterval; 
                 let y = historyData[i];
                 sumX += x;
                 sumY += y;
@@ -432,13 +467,10 @@
                 sumXX += x * x;
             }
 
-            // Fórmula de la pendiente (m) en regresión lineal
             let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
             
-            // Actualizar visual de la tasa de cambio
             slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
 
-            // Si la pendiente es negativa o muy cercana a 0, la temperatura está bajando o estable
             if(slope <= 0.001) {
                 predKpi.innerText = "ESTABLE";
                 predKpi.style.color = "var(--success)";
@@ -450,7 +482,6 @@
                      predKpi.innerText = "CRÍTICO";
                      predKpi.style.color = "var(--danger)";
                 } else {
-                     // Tiempo = Distancia / Velocidad
                      let segundosParaUmbral = tempRestante / slope;
                      let minutos = (segundosParaUmbral / 60).toFixed(1);
                      
@@ -475,29 +506,24 @@
                     historyData = [];
                     timeLabels = [];
 
-                    // Firebase devuelve un objeto JSON con IDs alfanuméricos generados aleatoriamente
-                    // Extraemos las llaves para iterarlo en orden
                     const keys = Object.keys(data);
                     
                     keys.forEach(key => {
                         const record = data[key];
                         
-                        // NOTA: Ajusta la palabra "temperatura" si en tu ESP32 la llamaste "temp" o de otra forma
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         historyData.push(tempValue);
                         
-                        // Si guardas la hora desde la ESP32 úsala, si no, se genera hora local
                         let timeStr = record.timestamp ? new Date(record.timestamp).toTimeString().substring(0, 5) : new Date().toTimeString().substring(0, 5);
                         timeLabels.push(timeStr);
                     });
 
-                    // El último registro es el actual
                     const lastKey = keys[keys.length - 1];
                     const latestData = data[lastKey];
                     
                     let currentTemp = parseFloat(latestData.temperatura || latestData.temp || latestData.field1) || 0.0;
                     let currentRssi = parseInt(latestData.rssi || latestData.field2) || -80;
-                    let fullTimeStr = new Date().toTimeString().split(' ')[0]; // Hora local
+                    let fullTimeStr = new Date().toTimeString().split(' ')[0]; 
 
                     // Actualizar UI General
                     const cloudStatusKpi = document.getElementById('kpi-cloud-status');
