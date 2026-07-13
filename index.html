@@ -9,11 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- LIBRERÍA CHART.JS PARA LA GRÁFICA DE LÍNEA CONTINUA -->
-   <!-- LIBRERÍA CHART.JS -->
+    <!-- LIBRERÍAS PARA LA GRÁFICA Y EL ZOOM -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- NUEVOS PLUGINS PARA ZOOM Y ARRASTRE -->
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
@@ -211,7 +208,6 @@
             </div>
 
             <div id="local-tab" class="tab-content active">
-                <!-- NUEVO CONTENEDOR DE LA GRÁFICA DE LÍNEA CONTINUA -->
                 <div style="height: 280px; width: 100%; margin-top: 20px;">
                     <canvas id="myChart"></canvas>
                 </div>
@@ -309,7 +305,7 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN DE FIREBASE (¡Reemplaza esta URL por la tuya!)
+        // CONFIGURACIÓN DE FIREBASE
         // ====================================================================
         const FIREBASE_URL = "https://monitoreo-lora-default-rtdb.firebaseio.com/Nodo1.json?orderBy=\"$key\"&limitToLast=100";
         
@@ -318,8 +314,6 @@
         
         let historyData = [];
         let timeLabels = [];
-        
-        // VARIABLE PARA LA GRÁFICA DE LÍNEAS
         let myLineChart = null; 
 
         function switchTab(tabId, element) {
@@ -381,31 +375,25 @@
         }
 
         // ====================================================================
-        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
-        // ====================================================================
-        // ====================================================================
-        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA (CHART.JS)
-        // ====================================================================
-        // ====================================================================
-        // NUEVA FUNCIÓN PARA DIBUJAR LÍNEA CONTINUA CON ZOOM Y PAN
+        // DIBUJAR LÍNEA CONTINUA CON ZOOM Y PAN
         // ====================================================================
         function renderChart() {
+            if (historyData.length === 0) return; // Protección si no hay datos aún
+
             const ctx = document.getElementById('myChart').getContext('2d');
             
-            // ¡CAMBIO!: Ya no limitamos a 10. Pasamos todo el historial para poder navegar.
             const renderData = historyData;
             const renderLabels = timeLabels;
 
-            // Determinar color de la línea según el umbral (basado en el dato más reciente)
             const lastTemp = renderData[renderData.length - 1] || 0;
-            let lineColor = '#0284c7'; // Azul por defecto
+            let lineColor = '#0284c7'; 
             let bgColor = 'rgba(2, 132, 199, 0.1)';
 
             if (lastTemp >= currentThreshold) {
-                lineColor = '#dc2626'; // Rojo (Crítico)
+                lineColor = '#dc2626'; 
                 bgColor = 'rgba(220, 38, 38, 0.1)';
             } else if (lastTemp >= (currentThreshold - 5)) {
-                lineColor = '#ca8a04'; // Amarillo (Advertencia)
+                lineColor = '#ca8a04'; 
                 bgColor = 'rgba(202, 138, 4, 0.1)';
             }
 
@@ -414,7 +402,6 @@
             const dynamicMin = minTemp - 2; 
             const dynamicMax = Math.max(maxTemp + 2, currentThreshold + 2); 
 
-            // Si la gráfica ya existe, actualizamos sus datos fluidamente
             if (myLineChart) {
                 myLineChart.data.labels = renderLabels;
                 myLineChart.data.datasets[0].data = renderData;
@@ -424,10 +411,8 @@
                 myLineChart.options.scales.y.suggestedMin = dynamicMin;
                 myLineChart.options.scales.y.suggestedMax = dynamicMax;
 
-                // Usamos 'none' para que la gráfica no reinicie tu zoom al llegar un nuevo dato
                 myLineChart.update('none'); 
             } else {
-                // Si no existe, la creamos por primera vez
                 myLineChart = new Chart(ctx, {
                     type: 'line', 
                     data: {
@@ -449,9 +434,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        animation: {
-                            duration: 400 
-                        },
+                        animation: { duration: 400 },
                         scales: {
                             y: {
                                 beginAtZero: false,
@@ -459,22 +442,17 @@
                                 suggestedMax: dynamicMax
                             }
                         },
-                        // ¡MAGIA!: Aquí se configura el plugin interactivo
                         plugins: {
                             zoom: {
                                 pan: {
                                     enabled: true,
-                                    mode: 'x', // Arrastrar de izquierda a derecha
-                                    modifierKey: null, // Puedes poner 'shift' si quieres que requiera presionar esa tecla
+                                    mode: 'x', 
+                                    modifierKey: null, 
                                 },
                                 zoom: {
-                                    wheel: {
-                                        enabled: true, // Habilita el zoom con la rueda
-                                    },
-                                    pinch: {
-                                        enabled: true // Zoom táctil en celulares (pellizcar)
-                                    },
-                                    mode: 'x', // Zoom solo en el eje del tiempo
+                                    wheel: { enabled: true },
+                                    pinch: { enabled: true },
+                                    mode: 'x', 
                                 }
                             }
                         }
@@ -484,7 +462,7 @@
         }
 
         // ====================================================================
-        // ALGORITMO PREDICTIVO: REGRESIÓN LINEAL SIMPLE
+        // ALGORITMO PREDICTIVO
         // ====================================================================
         function calcularPrediccion() {
             const predKpi = document.getElementById('kpi-prediction');
@@ -536,10 +514,7 @@
         }
 
         // ====================================================================
-        // PETICIÓN A LA BASE DE DATOS DE FIREBASE
-        // ====================================================================
-        // ====================================================================
-        // PETICIÓN A LA BASE DE DATOS DE FIREBASE (CON RELOJ CORREGIDO)
+        // PETICIÓN A FIREBASE CON RELOJ CORREGIDO
         // ====================================================================
         function readRealDataFromFirebase() {
             fetch(FIREBASE_URL)
@@ -550,24 +525,18 @@
                     timeLabels = [];
 
                     const keys = Object.keys(data);
-                    
-                    // ¡NUEVO!: Tomamos la hora exacta en la que llegan los datos
                     const now = new Date();
                     const totalRecords = keys.length;
                     
                     keys.forEach((key, index) => {
                         const record = data[key];
-                        
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         historyData.push(tempValue);
                         
-                        // ¡LA MAGIA!: Calculamos el tiempo hacia atrás de forma precisa
                         let timeStr;
                         if (record.timestamp) {
-                            // Si en el futuro logras que la ESP32 mande la hora, usa esa
                             timeStr = new Date(record.timestamp).toTimeString().substring(0, 8);
                         } else {
-                            // Si no, restamos los segundos según la posición del dato en el historial
                             let timeOffset = (totalRecords - 1 - index) * samplingInterval * 1000;
                             let calculatedTime = new Date(now.getTime() - timeOffset);
                             timeStr = calculatedTime.toTimeString().substring(0, 8);
@@ -582,7 +551,6 @@
                     let currentRssi = parseInt(latestData.rssi || latestData.field2) || -80;
                     let fullTimeStr = new Date().toTimeString().split(' ')[0]; 
 
-                    // Actualizar UI General
                     const cloudStatusKpi = document.getElementById('kpi-cloud-status');
                     const globalStatusDot = document.getElementById('global-status-dot');
                     const globalStatusText = document.getElementById('global-status-text');
@@ -593,20 +561,15 @@
                     globalStatusText.innerText = "ESTADO: SINCRONIZADO CON GOOGLE FIREBASE";
                     document.getElementById('fb-last-sync').innerText = fullTimeStr;
 
-                    // 1. Actualizar Tarjetas KPI
                     document.getElementById('kpi-temp').innerText = `${currentTemp.toFixed(1)} °C`;
                     document.getElementById('kpi-rssi').innerText = `${currentRssi} dBm`;
-
-                    // 2. Actualizar Tabla Modbus
                     document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
                     document.getElementById('modbus-40002').innerText = currentRssi;
 
-                    // 3. Evaluar lógica y dibujar
                     let isCritical = evaluateSystemStatus(currentTemp);
                     renderChart();
                     calcularPrediccion();
                     
-                    // 4. Logs de estado
                     addLog(`[Firebase REST API] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
                     if (isCritical) {
                         addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
@@ -621,6 +584,17 @@
                 document.getElementById('kpi-cloud-status').style.color = "var(--danger)";
             });
         }
+
+        window.onload = function() {
+            addLog("Inicializando sistema de monitoreo IoT...");
+            addLog(`Conectando al servidor Firebase RTDB...`, "cloud");
+            
+            readRealDataFromFirebase();
+            
+            setInterval(() => {
+                readRealDataFromFirebase();
+            }, samplingInterval * 1000); 
+        };
     </script>
 </body>
 </html>
