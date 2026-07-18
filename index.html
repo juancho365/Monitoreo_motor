@@ -315,6 +315,13 @@
         let historyData = [];
         let timeLabels = [];
         let myLineChart = null; 
+        
+        // ====================================================================
+        // NUEVAS VARIABLES PARA CONTROL DEL MAESTRO
+        // ====================================================================
+        let previousLastKey = null;
+        let staleCounter = 0;
+        const MAX_STALE_CYCLES = 2; // Número de ciclos permitidos sin datos nuevos antes de alertar
 
         function switchTab(tabId, element) {
             const contents = document.querySelectorAll('.tab-content');
@@ -514,19 +521,61 @@
         }
 
         // ====================================================================
-        // PETICIÓN A FIREBASE CON DETECCIÓN DE DESCONEXIÓN (-999)
+        // PETICIÓN A FIREBASE CON DETECCIÓN DE DESCONEXIÓN Y ESTANCAMIENTO
         // ====================================================================
         function readRealDataFromFirebase() {
             fetch(FIREBASE_URL)
             .then(response => response.json())
             .then(data => {
                 if (data) {
-                    historyData = [];
-                    timeLabels = [];
-
                     const keys = Object.keys(data);
                     const now = new Date();
                     const totalRecords = keys.length;
+                    
+                    // Extraemos el último dato registrado para la lógica
+                    const lastKey = keys[keys.length - 1];
+                    const latestData = data[lastKey];
+
+                    // Elementos de la interfaz a modificar
+                    const cloudStatusKpi = document.getElementById('kpi-cloud-status');
+                    const globalStatusDot = document.getElementById('global-status-dot');
+                    const globalStatusText = document.getElementById('global-status-text');
+                    const kpiTemp = document.getElementById('kpi-temp');
+
+                    // =================================================================
+                    // LÓGICA DE DETECCIÓN DE MAESTRO DESCONECTADO (Datos estancados)
+                    // =================================================================
+                    if (lastKey === previousLastKey) {
+                        staleCounter++;
+                    } else {
+                        staleCounter = 0;
+                        previousLastKey = lastKey;
+                    }
+
+                    if (staleCounter >= MAX_STALE_CYCLES) {
+                        globalStatusDot.style.backgroundColor = 'var(--danger)';
+                        globalStatusText.innerText = "ALERTA: MAESTRO LORA DESCONECTADO (DATOS ESTANCADOS)";
+                        globalStatusText.style.color = "var(--danger)";
+                        globalStatusText.style.fontWeight = "bold";
+                        
+                        cloudStatusKpi.innerText = "MAESTRO OFFLINE";
+                        cloudStatusKpi.style.color = "var(--danger)";
+                        
+                        kpiTemp.innerText = "-- °C";
+                        kpiTemp.style.color = "var(--danger)";
+                        
+                        document.getElementById('modbus-40003').innerText = "ERROR DE RED";
+                        
+                        if (staleCounter === MAX_STALE_CYCLES) {
+                            addLog(`¡ALERTA CRÍTICA! No se reciben nuevos datos en Firebase. Maestro desconectado.`, 'danger');
+                        }
+                        
+                        return; // Retornar anticipadamente para NO actualizar la gráfica
+                    }
+                    
+                    // Si hay datos nuevos, procesamos el historial
+                    historyData = [];
+                    timeLabels = [];
                     
                     // Solo guardamos en el historial los datos que NO sean errores (-999)
                     keys.forEach((key, index) => {
@@ -549,19 +598,9 @@
                         }
                     });
 
-                    // Extraemos el último dato registrado para la interfaz
-                    const lastKey = keys[keys.length - 1];
-                    const latestData = data[lastKey];
-                    
                     let currentTemp = parseFloat(latestData.temperatura || latestData.temp || latestData.field1) || 0.0;
                     let currentRssi = parseInt(latestData.rssi || latestData.field2) || -80;
                     let fullTimeStr = new Date().toTimeString().split(' ')[0]; 
-
-                    // Elementos de la interfaz a modificar
-                    const cloudStatusKpi = document.getElementById('kpi-cloud-status');
-                    const globalStatusDot = document.getElementById('global-status-dot');
-                    const globalStatusText = document.getElementById('global-status-text');
-                    const kpiTemp = document.getElementById('kpi-temp');
 
                     document.getElementById('fb-last-sync').innerText = fullTimeStr;
                     document.getElementById('kpi-rssi').innerText = `${currentRssi} dBm`;
