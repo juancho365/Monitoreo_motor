@@ -2,26 +2,27 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
-#include <PubSubClient.h> // Librería para MQTT
+
+// ===== LIBRERÍAS FIREBASE =====
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
 
 #define SLAVE_ID 1
-#define MY_ADDRESS 2
 
 // ===== CREDENCIALES WiFi =====
-const char* ssid = "FAMIILIA BOHORQUEZ";
-const char* password = "71092405626";
+const char* ssid = "Parrita"; 
+const char* password = "12345678"; 
 
-// ===== CREDENCIALES MQTT THINGSPEAK =====
-// Estas las sacas de: Devices > MQTT > Add a new device en ThingSpeak
-const char* mqttUserName = "MgYCCTALKi08HzstARArACQ"; 
-const char* mqttPass     = "z92j1AhkN0Xt3yaSd5YNpMRJ";
-const char* clientID     = "MgYCCTALKi08HzstARArACQ";
-unsigned long myChannelID = 3278425; // Tu número de canal
+// ===== CREDENCIALES FIREBASE =====
+#define API_KEY "AIzaSyDgqpgCavtbKBqSFUbAYOzMpQeZdSlQPDY" 
+#define DATABASE_URL "monitoreo-lora-default-rtdb.firebaseio.com" 
 
-const char* server = "mqtt3.thingspeak.com"; // Broker oficial 
-
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
+// Objetos de Firebase
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+bool signupOK = false;
 
 // ===== OLED =====
 #define SCREEN_WIDTH 128
@@ -32,14 +33,19 @@ PubSubClient mqttClient(espClient);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ===== LoRa UART =====
-HardwareSerial lora(1);
+HardwareSerial lora(2);
 unsigned long lastQuery = 0;
-const unsigned long interval = 3000;
+const unsigned long interval = 7000;  // Consulta LoRa cada 7s
 
-// ===== Temporización MQTT =====
-unsigned long lastTSUpdate = 0;
-const unsigned long tsInterval = 2500; // 2.5s solicitado (Ojo: ThingSpeak Free limita a 15s)
+// ===== Temporización Firebase y Variables Globales =====
+unsigned long lastFirebaseUpdate = 0;
+const unsigned long firebaseInterval = 10000; // Subimos datos cada 10 segundos
 float ultimaTemperatura = 0.0;
+int ultimoRSSI = -80; 
+
+// ===== NUEVO: VARIABLES DE TIMEOUT (DESCONEXIÓN) =====
+unsigned long lastSuccessfulRead = 0; // Guarda el momento de la última lectura exitosa
+const unsigned long timeoutEsclavo = 15000; // 15 segundos sin respuesta = Desconectado
 
 // ===== CRC16 MODBUS =====
 uint16_t modbusCRC(uint8_t *buf, int len) {
@@ -67,8 +73,19 @@ void mostrarTemperatura(float temp) {
   display.display();
 }
 
-void enviarConsulta() {
+void mostrarErrorConexion() {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 10);
+  display.print("ERROR:");
+  display.setTextSize(1);
+  display.setCursor(10, 40);
+  display.print("Esclavo Desconectado");
+  display.display();
+}
 
+void enviarConsulta() {
   uint8_t frame[8];
 
   frame[0] = SLAVE_ID;
@@ -83,7 +100,6 @@ void enviarConsulta() {
   frame[7] = crc >> 8;
 
   String payload = "";
-
   for (int i = 0; i < 8; i++) {
     if (frame[i] < 16) payload += "0";
     payload += String(frame[i], HEX);
@@ -93,30 +109,22 @@ void enviarConsulta() {
                String(payload.length()) + "," + payload;
 
   lora.println(cmd);
-  Serial.println("Consulta enviada");
-}
-
-void reconnectMQTT() {
-  while (!mqttClient.connected()) {
-    Serial.print("Intentando conexión MQTT...");
-    if (mqttClient.connect(clientID, mqttUserName, mqttPass)) {
-      Serial.println("Conectado a MQTT ThingSpeak");
-    } else {
-      Serial.print("Fallo, rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(" reintentando en 5 segundos");
-      delay(5000);
-    }
-  }
+  Serial.println("Consulta enviada a Esclavo LoRa");
 }
 
 void procesarRespuesta(String line) {
-
   int first = line.indexOf(',');
   int second = line.indexOf(',', first + 1);
   int third = line.indexOf(',', second + 1);
-
+  int fourth = line.indexOf(',', third + 1); 
+  
+  // Extraer los datos Modbus
   String dataHex = line.substring(second + 1, third);
+  
+  // Guardar el RSSI real del enlace LoRa
+  if(third != -1 && fourth != -1) {
+    ultimoRSSI = line.substring(third + 1, fourth).toInt();
+  }
 
   int len = dataHex.length() / 2;
   uint8_t frame[64];
@@ -130,7 +138,7 @@ void procesarRespuesta(String line) {
   uint16_t crcCalc = modbusCRC(frame, len - 2);
 
   if (crcRx != crcCalc) {
-    Serial.println("CRC ERROR");
+    Serial.println("CRC ERROR - Trama corrupta");
     return;
   }
 
@@ -138,48 +146,152 @@ void procesarRespuesta(String line) {
     uint16_t temp = (frame[3] << 8) | frame[4];
     float tempC = temp / 10.0;
 
-    Serial.print("Temperatura: ");
-    Serial.println(tempC);
+    Serial.print(">>>> TEMPERATURA RECIBIDA: "); Serial.print(tempC);
+    Serial.print(" °C | RSSI: "); Serial.print(ultimoRSSI); Serial.println(" dBm");
 
     mostrarTemperatura(tempC);
-    
     ultimaTemperatura = tempC;  
+    
+    // ¡NUEVO!: Actualizamos el reloj porque tuvimos una lectura exitosa
+    lastSuccessfulRead = millis();
   }
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); 
+  
+  // 1. Iniciar OLED primero
   Wire.begin(SDA_PIN, SCL_PIN);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while (true);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("Fallo al iniciar OLED");
+    while (true); 
+  }
+  
+  // 2. Mostrar mensaje de bienvenida
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 10);
+  display.println("Iniciando ESP32...");
+  display.display();
+  delay(1000); 
+
+  // 3. Conectar a WiFi con feedback visual
+  display.clearDisplay();
+  display.setCursor(0, 10);
+  display.println("Conectando WiFi:");
+  display.println(ssid);
+  display.display();
   
   WiFi.begin(ssid, password);
-  while (WiFi.status()!= WL_CONNECTED) delay(500);
+  Serial.print("Conectando a WiFi ");
   
-  mqttClient.setServer(server, 1883); // Puerto MQTT estándar 
-  lora.begin(9600, SERIAL_8N1, 16, 17);
+  int intentos = 0;
+  // Intenta conectar 20 veces (10 segundos)
+  while (WiFi.status() != WL_CONNECTED && intentos < 20) {
+    delay(500);
+    Serial.print(".");
+    display.print("."); // Muestra los puntos en la OLED
+    display.display();
+    intentos++;
+  }
+
+  // 4. Verificar si logró conectar
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Conectado!");
+    display.println("\nWiFi OK!");
+    display.display();
+    delay(1500);
+  } else {
+    // Si falla, muestra error y reinicia la placa
+    Serial.println("\nError: No hay WiFi. Reiniciando...");
+    display.println("\nFallo! Reiniciando");
+    display.display();
+    delay(3000);
+    ESP.restart(); 
+  }
+  
+  // 5. Configurar e Iniciar Firebase
+  Serial.println("Conectando a Firebase...");
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
+
+  // ACTIVAMOS EL MODO PRUEBA PARA SALTARNOS EL BLOQUEO (ERROR 503)
+  config.signer.test_mode = true; 
+  signupOK = true; 
+  Serial.println("Firebase configurado en Modo Prueba (Sin Autenticación)");
+
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true); 
+
+  // 6. Configurar LoRa
+  lora.begin(9600, SERIAL_8N1, 16, 17); 
+  
+  // Inicializar reloj de seguridad
+  lastSuccessfulRead = millis();
+
+  // 7. Pantalla lista
+  display.clearDisplay();
+  display.setCursor(0, 10);
+  display.println("Esperando datos");
+  display.println("por LoRa...");
+  display.display();
 }
 
 void loop() {
-  if (!mqttClient.connected()) reconnectMQTT();
-  mqttClient.loop();
-
+  // Consulta de Modbus al Esclavo
   if (millis() - lastQuery > interval) {
     lastQuery = millis();
     enviarConsulta();
   }
-
-  if (lora.available()) {
+  
+  // Escuchar respuestas LoRa
+  while (lora.available()) {
     String line = lora.readStringUntil('\n');
-    if (line.startsWith("+RCV=")) procesarRespuesta(line);
+    line.trim();
+    
+    if (line.length() > 0) {
+      Serial.println("LoRa Escucho: " + line); 
+      if (line.startsWith("+RCV=")) {
+        procesarRespuesta(line);
+      }
+    }
   }
 
-  if (millis() - lastTSUpdate > tsInterval) {
-    lastTSUpdate = millis();
-    // Tópico de publicación oficial: channels/<channelID>/publish 
-    String topic = "channels/" + String(myChannelID) + "/publish";
-    String payload = "field1=" + String(ultimaTemperatura);
+ // Publicar a Firebase (Cada 10 segundos)
+  if (Firebase.ready() && signupOK && (millis() - lastFirebaseUpdate > firebaseInterval)) {
+    lastFirebaseUpdate = millis();
     
-    mqttClient.publish(topic.c_str(), payload.c_str());
-    Serial.println("Datos enviados a ThingSpeak vía MQTT: " + payload);
+    // ==============================================================================
+    // ¡LÓGICA DE DESCONEXIÓN!: Si pasan más de 15s sin datos de LoRa, asumimos error
+    // ==============================================================================
+    if (millis() - lastSuccessfulRead > timeoutEsclavo) {
+        ultimaTemperatura = -999.0; // Forzamos temperatura irreal de desconexión
+        mostrarErrorConexion();     // Mostramos aviso en la pantalla física OLED
+        Serial.println("¡ALERTA! Timeout LoRa/Modbus. Reportando -999 a Firebase.");
+    }
+    
+    // Solo subimos datos si ya recibimos una lectura (o si activamos la desconexión -999)
+    if (ultimaTemperatura != 0.0) {
+      
+      FirebaseJson json;
+      json.set("Temperatura", ultimaTemperatura);
+      json.set("temperatura", ultimaTemperatura);
+      json.set("Temp", ultimaTemperatura);
+      json.set("temp", ultimaTemperatura);
+      
+      json.set("RSSI", ultimoRSSI);
+      json.set("rssi", ultimoRSSI);
+      
+      if (Firebase.RTDB.pushJSON(&fbdo, "Nodo1", &json)){
+        Serial.println("Firebase: Nuevo registro añadido.");
+      } else {
+        Serial.println("Error Firebase: " + fbdo.errorReason());
+      }
+      
+    } else {
+      Serial.println("Firebase: Esperando dato LoRa real antes de subir...");
+    }
   }
 }
