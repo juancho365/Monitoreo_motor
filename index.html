@@ -526,28 +526,56 @@
             }
         }
 
-        function calcularPrediccion() {
-            const predKpi = document.getElementById('kpi-prediction');
-            const slopeDisplay = document.getElementById('pred-slope');
-            
-            if(historyData.length < 3) { predKpi.innerText = "CALCULANDO"; return; }
+function calcularPrediccion() {
+    const predKpi = document.getElementById('kpi-prediction');
+    const slopeDisplay = document.getElementById('pred-slope');
+    
+    // --- MEJORA: VENTANA MÓVIL (SLIDING WINDOW) ---
+    // Analizar solo los últimos 20 datos para capturar la tendencia térmica actual
+    const WINDOW_SIZE = 20; 
+    
+    // Extraer solo la porción más reciente del historial
+    const recentData = historyData.slice(-WINDOW_SIZE);
+    
+    if(recentData.length < 3) { 
+        predKpi.innerText = "CALCULANDO"; 
+        return; 
+    }
 
-            let n = historyData.length; let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-            for(let i = 0; i < n; i++) { let x = i * samplingInterval; let y = historyData[i]; sumX += x; sumY += y; sumXY += x * y; sumXX += x * x; }
-            let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-            slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
+    let n = recentData.length; 
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    
+    for(let i = 0; i < n; i++) { 
+        let x = i * samplingInterval; 
+        let y = recentData[i]; 
+        sumX += x; 
+        sumY += y; 
+        sumXY += x * y; 
+        sumXX += x * x; 
+    }
+    
+    let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
 
-            if(slope <= 0.001) { predKpi.innerText = "ESTABLE"; predKpi.style.color = "var(--success)"; }
-            else {
-                let currentTemp = historyData[historyData.length - 1]; let tempRestante = currentThreshold - currentTemp;
-                if (tempRestante <= 0) { predKpi.innerText = "CRÍTICO"; predKpi.style.color = "var(--danger)"; }
-                else {
-                     let minutos = ((tempRestante / slope) / 60).toFixed(1);
-                     predKpi.innerText = `~${minutos} min`; predKpi.style.color = "var(--predictive)";
-                     if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
-                }
-            }
+    if(slope <= 0.001) { 
+        predKpi.innerText = "ESTABLE"; 
+        predKpi.style.color = "var(--success)"; 
+    } else {
+        let currentTemp = recentData[recentData.length - 1]; 
+        let tempRestante = currentThreshold - currentTemp;
+        
+        if (tempRestante <= 0) { 
+            predKpi.innerText = "CRÍTICO"; 
+            predKpi.style.color = "var(--danger)"; 
+        } else {
+             let minutos = ((tempRestante / slope) / 60).toFixed(1);
+             predKpi.innerText = `~${minutos} min`; 
+             predKpi.style.color = "var(--predictive)";
+             
+             if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
         }
+    }
+}
 
         function readRealDataFromFirebase() {
             fetch(FIREBASE_REALTIME_URL).then(response => response.json()).then(data => {
