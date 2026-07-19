@@ -1,34 +1,92 @@
 #include <SoftwareSerial.h>
 
-// Pines LoRa
-#define LORA_RX 11
-#define LORA_TX 10
+// ===== CONFIGURACIÓN PINES LORA =====
+#define LORA_RX 11 
+#define LORA_TX 10 
 SoftwareSerial lora(LORA_RX, LORA_TX);
 
-// Pin LM35
+// ===== CONFIGURACIÓN SENSOR Y RED =====
 #define LM35 A0
+#define SLAVE_ID 1
+#define MASTER_ADDRESS 2 
+
+uint16_t modbusCRC(uint8_t *buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) { crc >>= 1; crc ^= 0xA001; }
+      else { crc >>= 1; }
+    }
+  }
+  return crc;
+}
 
 void setup() {
-  Serial.begin(9600);
-  lora.begin(9600);
+  Serial.begin(115200); 
+  lora.begin(9600);     
   
-  Serial.println("ESCLAVO LISTO");
+  Serial.println("=========================================");
+  Serial.println("   ESCLAVO MODBUS - MODO DEBUG V2        ");
+  Serial.println("=========================================");
+  Serial.println("Esperando mensajes de la red LoRa...");
 }
 
 void loop() {
-  // Leer LM35 y convertir a temperatura
+  if (lora.available()) {
+    String line = lora.readStringUntil('\n');
+    line.trim(); 
+    
+    // Si es un error de ruido, lo ignoramos para mantener limpio el monitor
+    if (line.startsWith("+ERR=2")) return;
+    
+    // Imprimir solo los mensajes útiles
+    Serial.println("-> LO QUE LLEGÓ POR LORA: " + line);
+    
+    // Filtrar si es un paquete recibido (+RCV)
+    if (line.startsWith("+RCV=") || line.startsWith("+rcv=")) {
+      // Pasamos a minúsculas para evitar problemas de formato
+      line.toLowerCase(); 
+      
+      // Buscar el núcleo de la petición (Esclavo 01, Función 03)
+      if (line.indexOf("0103") != -1) {
+        Serial.println("-> [ÉXITO] Consulta Modbus detectada. Calculando respuesta...");
+        responderModbus();
+      } else {
+        Serial.println("-> [AVISO] Llegó un mensaje, pero no parece Modbus. Trama: " + line);
+      }
+    }
+  }
+}
+
+void responderModbus() {
   int valor = analogRead(LM35);
   float temperatura = (valor * 5.0 * 100.0) / 1024.0;
   
-  // Mostrar en monitor cada segundo
-  static unsigned long t = 0;
-  if (millis() - t > 1000) {
-    t = millis();
-    Serial.println(temperatura);
+  uint16_t tempModbus = (uint16_t)(temperatura * 10.0);
+  
+  uint8_t frame[7];
+  frame[0] = SLAVE_ID;          
+  frame[1] = 0x03;              
+  frame[2] = 0x02;              
+  frame[3] = tempModbus >> 8;   
+  frame[4] = tempModbus & 0xFF; 
+  
+  uint16_t crc = modbusCRC(frame, 5);
+  frame[5] = crc & 0xFF;        
+  frame[6] = crc >> 8;          
+
+  String payload = "";
+  for (int i = 0; i < 7; i++) {
+    if (frame[i] < 16) payload += "0"; 
+    payload += String(frame[i], HEX);
   }
+  payload.toUpperCase(); 
+
+  String cmd = "AT+SEND=" + String(MASTER_ADDRESS) + "," + String(payload.length()) + "," + payload;
+  lora.println(cmd);
   
-  // SIEMPRE enviar la temperatura por LoRa (sin esperar comando)
-  lora.println(temperatura);
-  
-  delay(2000); // Enviar cada 2 segundos
+  Serial.print("-> [ENVIADO AL MAESTRO] Comando AT: ");
+  Serial.println(cmd);
+  Serial.println("-----------------------------------------");
 }
