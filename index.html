@@ -119,11 +119,22 @@
         }
         .btn-action:hover { background-color: var(--primary-hover); }
 
-        /* TABLA DE REGISTROS MODBUS */
+        /* TABLAS GENERALES */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th { background-color: #f1f5f9; color: var(--text-secondary); text-align: left; padding: 12px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
         td { padding: 12px; border-bottom: 1px solid var(--border-color); }
         .badge-register { background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: 600; }
+
+        /* ESTILOS ESPECÍFICOS: PESTAÑA HISTORIAL */
+        .history-controls { display: flex; gap: 15px; margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed var(--border-color); align-items: flex-end; flex-wrap: wrap; }
+        .history-controls .form-group { margin-bottom: 0; flex: 1; min-width: 150px; }
+        .table-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; }
+        .table-container thead th { position: sticky; top: 0; background-color: #f8fafc; z-index: 1; box-shadow: 0 2px 4px -2px rgba(0,0,0,0.1); }
+        
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-normal { background: #dcfce7; color: #166534; }
+        .status-warning { background: #fef08a; color: #854d0e; }
+        .status-alert { background: #fee2e2; color: #991b1b; }
 
         /* DATOS NUBE FIREBASE */
         .firebase-meta-grid {
@@ -197,7 +208,7 @@
             <div class="card-kpi" style="border-color: #ddd6fe; background-color: #faf5ff;">
                 <div class="kpi-header"><span>TIEMPO AL UMBRAL</span><i class="fa-solid fa-brain"></i></div>
                 <div class="kpi-value" id="kpi-prediction" style="color: var(--predictive);">-- min</div>
-                <div class="kpi-footer">Regresión Lineal Simple (Predicción)</div>
+                <div class="kpi-footer">Regresión Lineal (Predicción)</div>
             </div>
         </div>
 
@@ -205,6 +216,8 @@
             <div class="tabs-container">
                 <button class="tab-btn active" onclick="switchTab('local-tab', this)"><i class="fa-solid fa-chart-area"></i> Gráfica en Tiempo Real</button>
                 <button class="tab-btn" onclick="switchTab('firebase-tab', this)"><i class="fa-solid fa-bolt"></i> Análisis Predictivo</button>
+                <!-- NUEVA PESTAÑA DE HISTORIAL -->
+                <button class="tab-btn" onclick="switchTab('history-tab', this); checkAndLoadHistory();"><i class="fa-solid fa-table-list"></i> Historial de Datos</button>
             </div>
 
             <div id="local-tab" class="tab-content active">
@@ -231,6 +244,51 @@
                     </div>
                 </div>
             </div>
+
+            <!-- NUEVO CONTENEDOR DE HISTORIAL -->
+            <div id="history-tab" class="tab-content">
+                <div class="history-controls">
+                    <div class="form-group">
+                        <label>Fecha Inicio</label>
+                        <input type="date" id="filter-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Fin</label>
+                        <input type="date" id="filter-end-date">
+                    </div>
+                    <div class="form-group" style="display: flex; justify-content: center;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 25px; color: var(--danger); font-weight: 600;">
+                            <input type="checkbox" id="filter-alerts" style="width: 16px; height: 16px;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Solo Mostrar Alertas
+                        </label>
+                    </div>
+                    <button class="btn-action" style="width: auto; padding: 10px 20px;" onclick="renderHistoryTable()">
+                        <i class="fa-solid fa-filter"></i> Aplicar Filtros
+                    </button>
+                    <button class="btn-action" style="width: auto; padding: 10px 20px; background-color: var(--text-secondary);" onclick="forceReloadHistory()">
+                        <i class="fa-solid fa-rotate-right"></i> Recargar DB
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Temperatura</th>
+                                <th>Nivel de Señal (RSSI)</th>
+                                <th>Estado del Motor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Haz clic en "Historial de Datos" para cargar desde la nube.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- FIN NUEVO CONTENEDOR DE HISTORIAL -->
+
         </div>
 
         <div class="panel-sidebar">
@@ -250,10 +308,15 @@
                 </div>
                 <button class="btn-action" onclick="updateParameters()"><i class="fa-solid fa-arrow-down-long"></i> Enviar Downlink LoRa</button>
             </div>
+            
+            <div>
+                <h2 class="panel-title"><i class="fa-solid fa-terminal"></i> Tráfico de Red</h2>
+                <div class="log-container" id="log-box"></div>
+            </div>
         </div>
 
-        <div class="panel-large">
-            <h2 class="panel-title"><i class="fa-solid fa-database"></i> Registro de Datos Protocolo Modbus RTU (Esclavo ID: 01)</h2>
+        <div class="panel-large" style="grid-column: span 4;">
+            <h2 class="panel-title"><i class="fa-solid fa-microchip"></i> Registro de Datos Protocolo Modbus RTU (Esclavo ID: 01)</h2>
             <table>
                 <thead>
                     <tr>
@@ -290,13 +353,6 @@
             </table>
         </div>
 
-        <div class="panel-sidebar">
-            <div>
-                <h2 class="panel-title"><i class="fa-solid fa-terminal"></i> Tráfico de Datos de Red</h2>
-                <div class="log-container" id="log-box"></div>
-            </div>
-        </div>
-
     </main>
 
     <footer>
@@ -307,7 +363,10 @@
         // ====================================================================
         // CONFIGURACIÓN DE FIREBASE
         // ====================================================================
-        const FIREBASE_URL = "https://monitoreo-lora-default-rtdb.firebaseio.com/Nodo1.json?orderBy=\"$key\"&limitToLast=100";
+        // URL para lectura en tiempo real (solo últimos 100 para no saturar)
+        const FIREBASE_REALTIME_URL = "https://monitoreo-lora-default-rtdb.firebaseio.com/Nodo1.json?orderBy=\"$key\"&limitToLast=100";
+        // URL para el historial completo
+        const FIREBASE_FULL_HISTORY_URL = "https://monitoreo-lora-default-rtdb.firebaseio.com/Nodo1.json";
         
         let currentThreshold = 75;
         let samplingInterval = 15;
@@ -316,12 +375,14 @@
         let timeLabels = [];
         let myLineChart = null; 
         
-        // ====================================================================
-        // NUEVAS VARIABLES PARA CONTROL DEL MAESTRO
-        // ====================================================================
+        // Variables para Control de Red
         let previousLastKey = null;
         let staleCounter = 0;
-        const MAX_STALE_CYCLES = 2; // Número de ciclos permitidos sin datos nuevos antes de alertar
+        const MAX_STALE_CYCLES = 2; 
+
+        // Variables para Historial Completo
+        let fullDatabaseRecords = [];
+        let isHistoryLoaded = false;
 
         function switchTab(tabId, element) {
             const contents = document.querySelectorAll('.tab-content');
@@ -350,6 +411,9 @@
                 renderChart();
                 calcularPrediccion();
             }
+            
+            // Si el historial está cargado, lo re-renderizamos para que actualice los estados de alerta
+            if(isHistoryLoaded) renderHistoryTable();
         }
 
         function addLog(message, type = 'info') {
@@ -382,13 +446,122 @@
         }
 
         // ====================================================================
-        // DIBUJAR LÍNEA CONTINUA CON ZOOM Y PAN
+        // LÓGICA DEL HISTORIAL COMPLETO DE DATOS
+        // ====================================================================
+
+        // Extrae la fecha de creación real desde la "Push Key" de Firebase (Ej: -Nabc123...)
+        function decodeFirebaseKeyToDate(pushId) {
+            if (!pushId || !pushId.startsWith('-')) return null;
+            const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+            let timestamp = 0;
+            for (let i = 0; i < 8; i++) {
+                timestamp = timestamp * 64 + PUSH_CHARS.indexOf(pushId.charAt(i));
+            }
+            return new Date(timestamp);
+        }
+
+        function checkAndLoadHistory() {
+            if (!isHistoryLoaded) forceReloadHistory();
+        }
+
+        function forceReloadHistory() {
+            const tbody = document.getElementById('history-tbody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Descargando base de datos completa...</td></tr>';
+            
+            fetch(FIREBASE_FULL_HISTORY_URL)
+                .then(res => res.json())
+                .then(data => {
+                    fullDatabaseRecords = [];
+                    if (data) {
+                        const keys = Object.keys(data);
+                        keys.forEach(key => {
+                            const record = data[key];
+                            // Omitimos errores de desconexión (-999) del historial visible
+                            let tempValue = parseFloat(record.temperatura || record.temp || record.field1);
+                            if(tempValue > -100) {
+                                let dateObj = record.timestamp ? new Date(record.timestamp) : decodeFirebaseKeyToDate(key);
+                                if(!dateObj || isNaN(dateObj.getTime())) dateObj = new Date(); // Fallback
+                                
+                                record._internalDate = dateObj;
+                                record._key = key;
+                                fullDatabaseRecords.push(record);
+                            }
+                        });
+                        
+                        // Ordenamos del más reciente al más antiguo
+                        fullDatabaseRecords.sort((a, b) => b._internalDate - a._internalDate);
+                    }
+                    isHistoryLoaded = true;
+                    renderHistoryTable();
+                    addLog(`Historial descargado: ${fullDatabaseRecords.length} registros cargados.`, 'info');
+                })
+                .catch(err => {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error al cargar historial: ${err.message}</td></tr>`;
+                });
+        }
+
+        function renderHistoryTable() {
+            if (!isHistoryLoaded) return;
+            
+            const tbody = document.getElementById('history-tbody');
+            const startDateStr = document.getElementById('filter-start-date').value;
+            const endDateStr = document.getElementById('filter-end-date').value;
+            const onlyAlerts = document.getElementById('filter-alerts').checked;
+
+            let startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : null;
+            let endDate = endDateStr ? new Date(endDateStr + 'T23:59:59') : null;
+
+            tbody.innerHTML = '';
+            let rowsRendered = 0;
+
+            for (let i = 0; i < fullDatabaseRecords.length; i++) {
+                const record = fullDatabaseRecords[i];
+                const temp = parseFloat(record.temperatura || record.temp || record.field1) || 0;
+                const rssi = parseInt(record.rssi || record.field2) || 0;
+                const dateObj = record._internalDate;
+
+                // Aplicar filtro de Solo Alertas
+                if (onlyAlerts && temp < currentThreshold) continue;
+
+                // Aplicar filtros de fecha
+                if (startDate && dateObj < startDate) continue;
+                if (endDate && dateObj > endDate) continue;
+
+                // Determinar estado visual
+                let statusHtml = `<span class="status-badge status-normal"><i class="fa-solid fa-check"></i> Normal</span>`;
+                if (temp >= currentThreshold) {
+                    statusHtml = `<span class="status-badge status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Crítico</span>`;
+                } else if (temp >= (currentThreshold - 5)) {
+                    statusHtml = `<span class="status-badge status-warning"><i class="fa-solid fa-bell"></i> Advertencia</span>`;
+                }
+
+                const dateStr = dateObj.toLocaleDateString('es-CO');
+                const timeStr = dateObj.toLocaleTimeString('es-CO');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${timeStr}</td>
+                    <td style="font-weight: 600; color: ${temp >= currentThreshold ? 'var(--danger)' : 'inherit'};">${temp.toFixed(1)} °C</td>
+                    <td>${rssi} dBm</td>
+                    <td>${statusHtml}</td>
+                `;
+                tbody.appendChild(tr);
+                rowsRendered++;
+            }
+
+            if(rowsRendered === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No se encontraron registros con los filtros actuales.</td></tr>';
+            }
+        }
+
+        // ====================================================================
+        // DIBUJAR LÍNEA CONTINUA (TIEMPO REAL)
         // ====================================================================
         function renderChart() {
-            if (historyData.length === 0) return; // Protección si no hay datos aún
+            if (historyData.length === 0) return; 
 
             const ctx = document.getElementById('myChart').getContext('2d');
-            
             const renderData = historyData;
             const renderLabels = timeLabels;
 
@@ -414,10 +587,8 @@
                 myLineChart.data.datasets[0].data = renderData;
                 myLineChart.data.datasets[0].borderColor = lineColor;
                 myLineChart.data.datasets[0].backgroundColor = bgColor;
-                
                 myLineChart.options.scales.y.suggestedMin = dynamicMin;
                 myLineChart.options.scales.y.suggestedMax = dynamicMax;
-
                 myLineChart.update('none'); 
             } else {
                 myLineChart = new Chart(ctx, {
@@ -439,30 +610,10 @@
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         animation: { duration: 400 },
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                suggestedMin: dynamicMin, 
-                                suggestedMax: dynamicMax
-                            }
-                        },
-                        plugins: {
-                            zoom: {
-                                pan: {
-                                    enabled: true,
-                                    mode: 'x', 
-                                    modifierKey: null, 
-                                },
-                                zoom: {
-                                    wheel: { enabled: true },
-                                    pinch: { enabled: true },
-                                    mode: 'x', 
-                                }
-                            }
-                        }
+                        scales: { y: { beginAtZero: false, suggestedMin: dynamicMin, suggestedMax: dynamicMax } },
+                        plugins: { zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } } }
                     }
                 });
             }
@@ -486,14 +637,10 @@
             for(let i = 0; i < n; i++) {
                 let x = i * samplingInterval; 
                 let y = historyData[i];
-                sumX += x;
-                sumY += y;
-                sumXY += x * y;
-                sumXX += x * x;
+                sumX += x; sumY += y; sumXY += x * y; sumXX += x * x;
             }
 
             let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-            
             slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
 
             if(slope <= 0.001) {
@@ -504,27 +651,22 @@
                 let tempRestante = currentThreshold - currentTemp;
                 
                 if (tempRestante <= 0) {
-                     predKpi.innerText = "CRÍTICO";
-                     predKpi.style.color = "var(--danger)";
+                     predKpi.innerText = "CRÍTICO"; predKpi.style.color = "var(--danger)";
                 } else {
                      let segundosParaUmbral = tempRestante / slope;
                      let minutos = (segundosParaUmbral / 60).toFixed(1);
+                     predKpi.innerText = `~${minutos} min`; predKpi.style.color = "var(--predictive)";
                      
-                     predKpi.innerText = `~${minutos} min`;
-                     predKpi.style.color = "var(--predictive)";
-                     
-                     if(minutos < 5) {
-                         addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} minutos.`, 'predict');
-                     }
+                     if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
                 }
             }
         }
 
         // ====================================================================
-        // PETICIÓN A FIREBASE CON DETECCIÓN DE DESCONEXIÓN Y ESTANCAMIENTO
+        // PETICIÓN A FIREBASE TIEMPO REAL
         // ====================================================================
         function readRealDataFromFirebase() {
-            fetch(FIREBASE_URL)
+            fetch(FIREBASE_REALTIME_URL)
             .then(response => response.json())
             .then(data => {
                 if (data) {
@@ -532,24 +674,36 @@
                     const now = new Date();
                     const totalRecords = keys.length;
                     
-                    // Extraemos el último dato registrado para la lógica
                     const lastKey = keys[keys.length - 1];
                     const latestData = data[lastKey];
 
-                    // Elementos de la interfaz a modificar
                     const cloudStatusKpi = document.getElementById('kpi-cloud-status');
                     const globalStatusDot = document.getElementById('global-status-dot');
                     const globalStatusText = document.getElementById('global-status-text');
                     const kpiTemp = document.getElementById('kpi-temp');
 
-                    // =================================================================
-                    // LÓGICA DE DETECCIÓN DE MAESTRO DESCONECTADO (Datos estancados)
-                    // =================================================================
+                    // LÓGICA DE DETECCIÓN DE MAESTRO DESCONECTADO
                     if (lastKey === previousLastKey) {
                         staleCounter++;
                     } else {
                         staleCounter = 0;
                         previousLastKey = lastKey;
+                        
+                        // --- ACTUALIZACIÓN EN TIEMPO REAL DEL HISTORIAL COMPLETO ---
+                        // Si llegó un dato nuevo y la tabla de historial ya fue cargada, lo inyectamos a la lista
+                        if (isHistoryLoaded) {
+                            let tempValue = parseFloat(latestData.temperatura || latestData.temp || latestData.field1);
+                            if (tempValue > -100) {
+                                let newDate = latestData.timestamp ? new Date(latestData.timestamp) : decodeFirebaseKeyToDate(lastKey) || new Date();
+                                latestData._internalDate = newDate;
+                                latestData._key = lastKey;
+                                
+                                // Insertamos al inicio del arreglo
+                                fullDatabaseRecords.unshift(latestData);
+                                // Volvemos a dibujar la tabla para que aparezca inmediatamente
+                                renderHistoryTable(); 
+                            }
+                        }
                     }
 
                     if (staleCounter >= MAX_STALE_CYCLES) {
@@ -557,35 +711,22 @@
                         globalStatusText.innerText = "ALERTA: MAESTRO LORA DESCONECTADO (DATOS ESTANCADOS)";
                         globalStatusText.style.color = "var(--danger)";
                         globalStatusText.style.fontWeight = "bold";
-                        
-                        cloudStatusKpi.innerText = "MAESTRO OFFLINE";
-                        cloudStatusKpi.style.color = "var(--danger)";
-                        
-                        kpiTemp.innerText = "-- °C";
-                        kpiTemp.style.color = "var(--danger)";
-                        
+                        cloudStatusKpi.innerText = "MAESTRO OFFLINE"; cloudStatusKpi.style.color = "var(--danger)";
+                        kpiTemp.innerText = "-- °C"; kpiTemp.style.color = "var(--danger)";
                         document.getElementById('modbus-40003').innerText = "ERROR DE RED";
-                        
-                        if (staleCounter === MAX_STALE_CYCLES) {
-                            addLog(`¡ALERTA CRÍTICA! No se reciben nuevos datos en Firebase. Maestro desconectado.`, 'danger');
-                        }
-                        
-                        return; // Retornar anticipadamente para NO actualizar la gráfica
+                        if (staleCounter === MAX_STALE_CYCLES) addLog(`¡ALERTA CRÍTICA! No se reciben nuevos datos en Firebase. Maestro desconectado.`, 'danger');
+                        return;
                     }
                     
-                    // Si hay datos nuevos, procesamos el historial
                     historyData = [];
                     timeLabels = [];
                     
-                    // Solo guardamos en el historial los datos que NO sean errores (-999)
                     keys.forEach((key, index) => {
                         const record = data[key];
                         let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         
-                        // Si la temperatura es válida, la metemos a la gráfica
                         if (tempValue > -100) {
                             historyData.push(tempValue);
-                            
                             let timeStr;
                             if (record.timestamp) {
                                 timeStr = new Date(record.timestamp).toTimeString().substring(0, 8);
@@ -606,51 +747,32 @@
                     document.getElementById('kpi-rssi').innerText = `${currentRssi} dBm`;
                     document.getElementById('modbus-40002').innerText = currentRssi;
 
-                    // =================================================================
                     // LÓGICA DE DETECCIÓN DE ESCLAVO DESCONECTADO (-999)
-                    // =================================================================
                     if (currentTemp <= -100) {
-                        // MODO ERROR: Esclavo desconectado
                         globalStatusDot.style.backgroundColor = 'var(--danger)';
                         globalStatusText.innerText = "ALERTA: ESCLAVO MODBUS DESCONECTADO";
                         globalStatusText.style.color = "var(--danger)";
                         globalStatusText.style.fontWeight = "bold";
-                        
-                        cloudStatusKpi.innerText = "DATOS INVÁLIDOS";
-                        cloudStatusKpi.style.color = "var(--warning)";
-
-                        kpiTemp.innerText = "ERROR";
-                        kpiTemp.style.color = "var(--danger)";
-                        
+                        cloudStatusKpi.innerText = "DATOS INVÁLIDOS"; cloudStatusKpi.style.color = "var(--warning)";
+                        kpiTemp.innerText = "ERROR"; kpiTemp.style.color = "var(--danger)";
                         document.getElementById('modbus-40001').innerText = "Fallo de Lectura";
                         document.getElementById('modbus-40003').innerText = "ERROR COMUNICACIÓN";
-                        
                         addLog(`¡ALERTA CRÍTICA! Se perdió comunicación con el esclavo Modbus.`, 'danger');
-                        
                     } else {
-                        // MODO NORMAL: Todo funcionando bien
                         globalStatusDot.style.backgroundColor = 'var(--success)';
                         globalStatusText.innerText = "ESTADO: SINCRONIZADO CON GOOGLE FIREBASE";
                         globalStatusText.style.color = "inherit";
                         globalStatusText.style.fontWeight = "normal";
-
-                        cloudStatusKpi.innerText = "CONECTADO";
-                        cloudStatusKpi.style.color = "var(--success)";
-
-                        kpiTemp.innerText = `${currentTemp.toFixed(1)} °C`;
-                        kpiTemp.style.color = "var(--text-primary)";
-                        
+                        cloudStatusKpi.innerText = "CONECTADO"; cloudStatusKpi.style.color = "var(--success)";
+                        kpiTemp.innerText = `${currentTemp.toFixed(1)} °C`; kpiTemp.style.color = "var(--text-primary)";
                         document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
 
-                        // Evaluar lógica, dibujar gráfica y predecir SOLO si hay datos válidos
                         let isCritical = evaluateSystemStatus(currentTemp);
                         renderChart();
                         calcularPrediccion();
                         
                         addLog(`[Firebase REST API] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
-                        if (isCritical) {
-                            addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
-                        }
+                        if (isCritical) addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
                     }
                 }
             })
@@ -664,13 +786,9 @@
         }
 
         // ====================================================================
-        // INICIO AUTOMÁTICO DEL SISTEMA
+        // INICIO AUTOMÁTICO
         // ====================================================================
-        
-        // 1. Ejecutar inmediatamente al cargar la página
         readRealDataFromFirebase();
-        
-        // 2. Programar la ejecución cíclica según el intervalo configurado
         setInterval(readRealDataFromFirebase, samplingInterval * 1000);
 
     </script>
