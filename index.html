@@ -95,6 +95,55 @@
         .log-predict { color: #c084fc; }
 
         footer { background-color: #ffffff; border-top: 1px solid var(--border-color); padding: 15px; text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: auto; }
+        /* =========================================================
+           ADAPTACIÓN PARA DISPOSITIVOS MÓVILES (RESPONSIVE DESIGN)
+           ========================================================= */
+        
+        /* Ajuste general para tablas en móviles (evita que se desborden de la pantalla) */
+        .panel-large, .table-container, table {
+            overflow-x: auto;
+        }
+
+        /* Pantallas medianas (Tablets) */
+        @media (max-width: 1024px) {
+            main { grid-template-columns: repeat(2, 1fr); }
+            .kpi-container { grid-column: span 2; grid-template-columns: repeat(3, 1fr); }
+            .panel-large { grid-column: span 2; }
+            .panel-sidebar { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;}
+            .panel-large[style*="grid-column: span 4"] { grid-column: span 2 !important; }
+        }
+
+        /* Pantallas pequeñas (Teléfonos) */
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: flex-start; gap: 12px; padding: 15px; }
+            .system-status { flex-direction: column; align-items: flex-start; width: 100%; gap: 5px; }
+            .system-status span[style] { margin-left: 0 !important; }
+            
+            main { display: flex; flex-direction: column; padding: 10px; margin: 15px auto; }
+            .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            
+            .tabs-container { flex-wrap: wrap; }
+            .tab-btn { flex: 1; min-width: 120px; text-align: center; font-size: 13px; padding: 10px; }
+            
+            .panel-sidebar { display: flex; flex-direction: column; gap: 20px; }
+            
+            .history-controls { flex-direction: column; align-items: stretch; gap: 15px; }
+            .history-controls .form-group { width: 100%; margin-top: 0 !important; }
+            .history-controls div[style*="display: flex; gap: 5px;"] { justify-content: space-between; }
+            .history-controls button { flex: 1; }
+            
+            .firebase-meta-grid { grid-template-columns: 1fr; gap: 10px; }
+            .prediction-info { padding: 15px; }
+            .prediction-info h3 { font-size: 16px; }
+            
+            th, td { padding: 10px 8px; font-size: 13px; }
+        }
+
+        /* Pantallas muy pequeñas (Teléfonos estrechos) */
+        @media (max-width: 480px) {
+            .kpi-container { grid-template-columns: 1fr; }
+            .tab-btn { min-width: 100%; }
+        }
     </style>
 </head>
 <body>
