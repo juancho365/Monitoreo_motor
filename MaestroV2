@@ -1,0 +1,287 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <WiFi.h>
+
+// ===== LIBRERÍAS FIREBASE =====
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+
+#define SLAVE_ID 1
+
+// ===== CREDENCIALES WiFi =====
+const char* ssid = "Parrita"; 
+const char* password = "12345678"; 
+
+// ===== CREDENCIALES FIREBASE =====
+#define API_KEY "AIzaSyDgqpgCavtbKBqSFUbAYOzMpQeZdSlQPDY" 
+#define DATABASE_URL "monitoreo-lora-default-rtdb.firebaseio.com" 
+
+// Objetos de Firebase
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+bool signupOK = false;
+
+// ===== OLED (Pines de pantalla I2C) =====
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+
+#define SDA_PIN 13
+#define SCL_PIN 14
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// ===== LoRa UART (RX=GPIO16, TX=GPIO17) =====
+HardwareSerial lora(2);
+unsigned long lastQuery = 0;
+const unsigned long interval = 7000;  // Consulta LoRa cada 7s
+
+// ===== Temporización Firebase y Variables Globales =====
+unsigned long lastFirebaseUpdate = 0;
+const unsigned long firebaseInterval = 10000; // Subir datos cada 10s
+float ultimaTemperatura = 0.0;
+int ultimoRSSI = -80; 
+
+// ===== VARIABLES DE TIMEOUT (DESCONEXIÓN) =====
+unsigned long lastSuccessfulRead = 0; 
+const unsigned long timeoutEsclavo = 15000; // 15s sin respuesta = Desconectado
+
+// ===== CRC16 MODBUS =====
+uint16_t modbusCRC(uint8_t *buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) { crc >>= 1; crc ^= 0xA001; }
+      else { crc >>= 1; }
+    }
+  }
+  return crc;
+}
+
+void mostrarTemperatura(float temp) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 10);
+  display.print("Temp:");
+  display.setTextSize(3);
+  display.setCursor(10, 35);
+  display.print(temp);
+  display.print("C");
+  display.display();
+}
+
+void mostrarErrorConexion() {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 10);
+  display.print("ERROR:");
+  display.setTextSize(1);
+  display.setCursor(10, 40);
+  display.print("Esclavo Desconectado");
+  display.display();
+}
+
+void enviarConsulta() {
+  uint8_t frame[8];
+
+  frame[0] = SLAVE_ID;
+  frame[1] = 0x03;
+  frame[2] = 0x00;
+  frame[3] = 0x00;
+  frame[4] = 0x00;
+  frame[5] = 0x01;
+
+  uint16_t crc = modbusCRC(frame, 6);
+  frame[6] = crc & 0xFF;
+  frame[7] = crc >> 8;
+
+  String payload = "";
+  for (int i = 0; i < 8; i++) {
+    if (frame[i] < 16) payload += "0";
+    payload += String(frame[i], HEX);
+  }
+
+  // Se envía el comando AT con fin de línea estricto \r\n
+  String cmd = "AT+SEND=" + String(SLAVE_ID) + "," +
+               String(payload.length()) + "," + payload;
+
+  lora.print(cmd + "\r\n");
+  Serial.println("Consulta enviada a Esclavo LoRa: " + cmd);
+}
+
+void procesarRespuesta(String line) {
+  int first = line.indexOf(',');
+  int second = line.indexOf(',', first + 1);
+  int third = line.indexOf(',', second + 1);
+  int fourth = line.indexOf(',', third + 1); 
+  
+  String dataHex = line.substring(second + 1, third);
+  
+  if(third != -1 && fourth != -1) {
+    ultimoRSSI = line.substring(third + 1, fourth).toInt();
+  }
+
+  int len = dataHex.length() / 2;
+  uint8_t frame[64];
+
+  for (int i = 0; i < len; i++) {
+    String byteStr = dataHex.substring(i * 2, i * 2 + 2);
+    frame[i] = strtol(byteStr.c_str(), NULL, 16);
+  }
+
+  uint16_t crcRx = frame[len - 2] | (frame[len - 1] << 8);
+  uint16_t crcCalc = modbusCRC(frame, len - 2);
+
+  if (crcRx != crcCalc) {
+    Serial.println("CRC ERROR - Trama corrupta");
+    return;
+  }
+
+  if (frame[1] == 0x03 && frame[2] == 0x02) {
+    uint16_t temp = (frame[3] << 8) | frame[4];
+    float tempC = temp / 10.0;
+
+    Serial.print(">>>> TEMPERATURA RECIBIDA: "); Serial.print(tempC);
+    Serial.print(" °C | RSSI: "); Serial.print(ultimoRSSI); Serial.println(" dBm");
+
+    mostrarTemperatura(tempC);
+    ultimaTemperatura = tempC;  
+    
+    lastSuccessfulRead = millis();
+  }
+}
+
+void setup() {
+  Serial.begin(115200); 
+  
+  // 1. Iniciar OLED en SDA=13, SCL=14
+  Wire.begin(SDA_PIN, SCL_PIN);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("Fallo al iniciar OLED");
+    while (true); 
+  }
+  
+  // 2. Mensaje de bienvenida
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 10);
+  display.println("Iniciando ESP32...");
+  display.display();
+  delay(1000); 
+
+  // 3. Conectar a WiFi
+  display.clearDisplay();
+  display.setCursor(0, 10);
+  display.println("Conectando WiFi:");
+  display.println(ssid);
+  display.display();
+  
+  WiFi.begin(ssid, password);
+  Serial.print("Conectando a WiFi ");
+  
+  int intentos = 0;
+  while (WiFi.status() != WL_CONNECTED && intentos < 20) {
+    delay(500);
+    Serial.print(".");
+    display.print("."); 
+    display.display();
+    intentos++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Conectado!");
+    display.println("\nWiFi OK!");
+    display.display();
+    delay(1500);
+  } else {
+    Serial.println("\nError: No hay WiFi. Reiniciando...");
+    display.println("\nFallo! Reiniciando");
+    display.display();
+    delay(3000);
+    ESP.restart(); 
+  }
+  
+  // 4. Configurar Firebase
+  Serial.println("Conectando a Firebase...");
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
+
+  config.signer.test_mode = true; 
+  signupOK = true; 
+  Serial.println("Firebase configurado en Modo Prueba");
+
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true); 
+
+  // 5. Configurar LoRa UART (RX=16, TX=17) a 9600 baudios
+  lora.begin(9600, SERIAL_8N1, 16, 17); 
+  
+  lastSuccessfulRead = millis();
+
+  // 6. Pantalla lista
+  display.clearDisplay();
+  display.setCursor(0, 10);
+  display.println("Esperando datos");
+  display.println("por LoRa...");
+  display.display();
+}
+
+void loop() {
+  // Enviar consulta Modbus RTU periódicamente
+  if (millis() - lastQuery > interval) {
+    lastQuery = millis();
+    enviarConsulta();
+  }
+  
+  // Procesar respuestas entrantes desde el esclavo
+  while (lora.available()) {
+    String line = lora.readStringUntil('\n');
+    line.trim();
+    
+    if (line.length() > 0) {
+      Serial.println("LoRa Escucho: " + line); 
+      if (line.startsWith("+RCV=") || line.startsWith("+rcv=")) {
+        procesarRespuesta(line);
+      }
+    }
+  }
+
+  // Publicar mediciones en Firebase Realtime Database
+  if (Firebase.ready() && signupOK && (millis() - lastFirebaseUpdate > firebaseInterval)) {
+    lastFirebaseUpdate = millis();
+    
+    if (millis() - lastSuccessfulRead > timeoutEsclavo) {
+        ultimaTemperatura = -999.0;
+        mostrarErrorConexion();     
+        Serial.println("¡ALERTA! Timeout LoRa/Modbus. Reportando -999 a Firebase.");
+    }
+    
+    if (ultimaTemperatura != 0.0) {
+      FirebaseJson json;
+      json.set("Temperatura", ultimaTemperatura);
+      json.set("temperatura", ultimaTemperatura);
+      json.set("Temp", ultimaTemperatura);
+      json.set("temp", ultimaTemperatura);
+      
+      json.set("RSSI", ultimoRSSI);
+      json.set("rssi", ultimoRSSI);
+      
+      if (Firebase.RTDB.pushJSON(&fbdo, "Nodo1", &json)){
+        Serial.println("Firebase: Nuevo registro añadido.");
+      } else {
+        Serial.println("Error Firebase: " + fbdo.errorReason());
+      }
+      
+    } else {
+      Serial.println("Firebase: Esperando dato LoRa real antes de subir...");
+    }
+  }
+}
