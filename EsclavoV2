@@ -1,0 +1,119 @@
+#include <SoftwareSerial.h>
+#include <max6675.h>  // Librería oficial de Adafruit para MAX6675
+
+// ===== CONFIGURACIÓN PINES LORA =====
+// SoftwareSerial(RX_Arduino, TX_Arduino)
+// Pin 11 (RX Arduino) <- Conectado a TXD del LoRa
+// Pin 10 (TX Arduino) -> Conectado a RXD del LoRa (mediante divisor de voltaje a 3.3V)
+#define ARDUINO_RX 11 
+#define ARDUINO_TX 10 
+SoftwareSerial lora(ARDUINO_RX, ARDUINO_TX);
+
+// ===== CONFIGURACIÓN SENSOR MAX6675 =====
+#define MAX6675_SO  4
+#define MAX6675_CS  5
+#define MAX6675_SCK 6
+
+// Instancia del sensor MAX6675 (SCK, CS, SO)
+MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
+
+// ===== CONFIGURACIÓN RED MODBUS =====
+#define SLAVE_ID 1
+#define MASTER_ADDRESS 2 // Dirección asignada al ESP32-S3 Maestro
+
+// ===== CÁLCULO DE CRC16 MODBUS =====
+uint16_t modbusCRC(uint8_t *buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) { crc >>= 1; crc ^= 0xA001; }
+      else { crc >>= 1; }
+    }
+  }
+  return crc;
+}
+
+void setup() {
+  Serial.begin(115200); 
+  lora.begin(9600); // Velocidad configurada con AT+IPR=9600
+  
+  Serial.println("=========================================");
+  Serial.println("   ESCLAVO MODBUS (MAX6675 + LoRa)       ");
+  Serial.println("=========================================");
+  Serial.println("Esperando consultas de la red LoRa...");
+  
+  delay(500); // Estabilización del sensor térmico
+}
+
+void loop() {
+  if (lora.available()) {
+    String line = lora.readStringUntil('\n');
+    line.trim(); 
+    
+    // Ignorar avisos de error/ruido de señal LoRa
+    if (line.startsWith("+ERR=2")) return;
+    
+    Serial.println("-> LO QUE LLEGÓ POR LORA: " + line);
+    
+    // Validar recepción de trama LoRa (+RCV)
+    if (line.startsWith("+RCV=") || line.startsWith("+rcv=")) {
+      line.toLowerCase(); 
+      
+      // Buscar la trama Modbus correspondiente al esclavo 01 y función 03 (0103)
+      if (line.indexOf("0103") != -1) {
+        Serial.println("-> [ÉXITO] Consulta Modbus detectada. Leyendo termocupla...");
+        responderModbus();
+      } else {
+        Serial.println("-> [AVISO] Trama recibida pero sin coincidencia Modbus: " + line);
+      }
+    }
+  }
+}
+
+void responderModbus() {
+  // Lectura de la termocupla
+  float temperatura = thermocouple.readCelsius();
+  
+  // Verificación de lectura válida (termocupla desconectada o fallando)
+  if (isnan(temperatura)) {
+    Serial.println("-> [ERROR] No se pudo leer el sensor MAX6675.");
+    temperatura = 0.0;
+  }
+
+  Serial.print("-> Temperatura medida: ");
+  Serial.print(temperatura);
+  Serial.println(" °C");
+
+  // Escalar x10 para enviar en un entero de 16 bits sin perder precisión decimal
+  uint16_t tempModbus = (uint16_t)(temperatura * 10.0);
+  
+  // Construcción de la trama de respuesta Modbus RTU (7 bytes)
+  uint8_t frame[7];
+  frame[0] = SLAVE_ID;          // ID Esclavo (1)
+  frame[1] = 0x03;              // Función 03 (Read Holding Registers)
+  frame[2] = 0x02;              // Cantidad de bytes de datos
+  frame[3] = tempModbus >> 8;   // Byte Alto de temperatura
+  frame[4] = tempModbus & 0xFF; // Byte Bajo de temperatura
+  
+  // Cálculo de CRC16
+  uint16_t crc = modbusCRC(frame, 5);
+  frame[5] = crc & 0xFF;        // Byte Bajo CRC
+  frame[6] = crc >> 8;          // Byte Alto CRC
+
+  // Convertir trama binaria a string Hexadecimal para AT+SEND
+  String payload = "";
+  for (int i = 0; i < 7; i++) {
+    if (frame[i] < 16) payload += "0"; 
+    payload += String(frame[i], HEX);
+  }
+  payload.toUpperCase(); 
+
+  // Enviar comando AT al módulo RYLR890 apuntando al ID 2 (Maestro)
+  String cmd = "AT+SEND=" + String(MASTER_ADDRESS) + "," + String(payload.length()) + "," + payload;
+  lora.print(cmd + "\r\n"); // Salto de línea estricto \r\n requerido por Reyax
+  
+  Serial.print("-> [ENVIADO AL MAESTRO] Comando AT: ");
+  Serial.println(cmd);
+  Serial.println("-----------------------------------------");
+}
