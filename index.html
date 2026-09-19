@@ -575,57 +575,100 @@
             }
         }
 
-function calcularPrediccion() {
-    const predKpi = document.getElementById('kpi-prediction');
+function calcularPrediccion() { 
+    const predKpi = document.getElementById('kpi-prediction'); 
     const slopeDisplay = document.getElementById('pred-slope');
+
+    // 1. Ampliación de la ventana móvil (aprox 10 min de inercia)
+    const WINDOW_SIZE = 40; 
     
-    // --- MEJORA: VENTANA MÓVIL (SLIDING WINDOW) ---
-    // Analizar solo los últimos 20 datos para capturar la tendencia térmica actual
-    const WINDOW_SIZE = 20; 
-    
-    // Extraer solo la porción más reciente del historial
-    const recentData = historyData.slice(-WINDOW_SIZE);
-    
-    if(recentData.length < 3) { 
+    // Validar si hay suficientes datos
+    if(historyData.length < WINDOW_SIZE) { 
         predKpi.innerText = "CALCULANDO"; 
+        slopeDisplay.innerText = "--- °C/seg";
         return; 
     }
 
-    let n = recentData.length; 
+    // Extraer datos y etiquetas de tiempo (Timestamps) más recientes
+    const rawData = historyData.slice(-WINDOW_SIZE);
+    const rawTimes = timeLabels.slice(-WINDOW_SIZE);
+
+    // 2. Aplicar Filtro de Suavizado (Media Móvil Simple - SMA de 5 muestras)
+    const SMA_WINDOW = 5;
+    let smoothedData = [];
+    
+    // Suavizado: calcula el promedio de las últimas 'SMA_WINDOW' muestras para cada punto
+    for (let i = 0; i < rawData.length; i++) {
+        if (i < SMA_WINDOW - 1) {
+            smoothedData.push(rawData[i]); // No hay suficientes datos para la ventana SMA inicial
+        } else {
+            let sum = 0;
+            for (let j = 0; j < SMA_WINDOW; j++) {
+                sum += rawData[i - j];
+            }
+            smoothedData.push(sum / SMA_WINDOW);
+        }
+    }
+
+    // 3. Preparación de variables para la Regresión Lineal por Mínimos Cuadrados
+    let n = smoothedData.length; 
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     
-    for(let i = 0; i < n; i++) { 
-        let x = i * samplingInterval; 
-        let y = recentData[i]; 
+    // Usar la primera etiqueta de tiempo de la ventana como tiempo 0 (T0)
+    // Parseamos la fecha asumiendo formato HH:MM:SS para convertlo a un objeto Date del día actual
+    const baseTimeStr = rawTimes[0];
+    const baseDate = new Date(`1970-01-01T${baseTimeStr}Z`);
+    
+    for(let i = 0; i < n; i++) {
+        // Cálculo de Delta T real en lugar de índice ideal
+        const currentTimeStr = rawTimes[i];
+        const currentDate = new Date(`1970-01-01T${currentTimeStr}Z`);
+        
+        // Manejo básico de cambio de día (si cruza la medianoche en la ventana)
+        if(currentDate < baseDate) {
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        let x = (currentDate.getTime() - baseDate.getTime()) / 1000; // Delta T en segundos
+        let y = smoothedData[i]; 
+        
         sumX += x; 
         sumY += y; 
         sumXY += x * y; 
         sumXX += x * x; 
     }
-    
+
+    // Calcular pendiente (Tasa de cambio)
     let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
     slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
 
-    if(slope <= 0.001) { 
-        predKpi.innerText = "ESTABLE"; 
-        predKpi.style.color = "var(--success)"; 
+    let currentTemp = smoothedData[smoothedData.length - 1]; 
+
+    // 4. Rango Muerto y Lógica de Predicción
+    // El motor debe superar los 50°C para empezar a estimar calentamientos peligrosos
+    if (currentTemp <= 50) {
+        predKpi.innerText = "NO APLICA"; 
+        predKpi.style.color = "var(--text-secondary)"; 
     } else {
-        let currentTemp = recentData[recentData.length - 1]; 
-        let tempRestante = currentThreshold - currentTemp;
-        
-        if (tempRestante <= 0) { 
-            predKpi.innerText = "CRÍTICO"; 
-            predKpi.style.color = "var(--danger)"; 
+        if(slope <= 0.001) { 
+            predKpi.innerText = "ESTABLE"; 
+            predKpi.style.color = "var(--success)"; 
         } else {
-             let minutos = ((tempRestante / slope) / 60).toFixed(1);
-             predKpi.innerText = `~${minutos} min`; 
-             predKpi.style.color = "var(--predictive)";
-             
-             if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
+            let tempRestante = currentThreshold - currentTemp;
+            
+            if (tempRestante <= 0) { 
+                predKpi.innerText = "CRÍTICO"; 
+                predKpi.style.color = "var(--danger)"; 
+            } else {
+                 let minutos = ((tempRestante / slope) / 60).toFixed(1);
+                 predKpi.innerText = `~${minutos} min`; 
+                 predKpi.style.color = "var(--predictive)";
+                 
+                 if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
+            }
         }
     }
 }
-
         function readRealDataFromFirebase() {
             fetch(FIREBASE_REALTIME_URL).then(response => response.json()).then(data => {
                 if (data) {
