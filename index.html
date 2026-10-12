@@ -62,8 +62,10 @@
         .form-group label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
         .form-group input, .form-group select { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 14px; }
         
-        .btn-action { background-color: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; width: 100%; transition: background-color 0.2s; }
+        .btn-action { background-color: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; width: 100%; transition: background-color 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
         .btn-action:hover { background-color: var(--primary-hover); }
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #15803d; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th { background-color: #f1f5f9; color: var(--text-secondary); text-align: left; padding: 12px; font-weight: 600; border-bottom: 2px solid var(--border-color); }
@@ -72,7 +74,7 @@
 
         .history-controls { display: flex; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed var(--border-color); align-items: flex-end; flex-wrap: wrap; }
         .history-controls .form-group { margin-bottom: 0; flex: 1; min-width: 120px; }
-        .table-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; }
+        .table-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 15px; }
         .table-container thead th { position: sticky; top: 0; background-color: #f8fafc; z-index: 1; box-shadow: 0 2px 4px -2px rgba(0,0,0,0.1); }
         
         .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -84,7 +86,8 @@
         .meta-item { font-size: 13px; color: var(--text-secondary); }
         .meta-item strong { color: var(--text-primary); font-family: monospace; }
         
-        .prediction-info { background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 6px; padding: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
+        .prediction-info { background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 6px; padding: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; position: relative; }
+        .trend-badge { position: absolute; top: 15px; right: 15px; background: #ede9fe; color: var(--predictive); padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 
         .log-container { background-color: #0f172a; color: #38bdf8; font-family: monospace; font-size: 12px; padding: 15px; border-radius: 6px; height: 180px; overflow-y: auto; border: 1px solid #1e293b; }
         .log-line { margin-bottom: 6px; line-height: 1.4; }
@@ -95,16 +98,9 @@
         .log-predict { color: #c084fc; }
 
         footer { background-color: #ffffff; border-top: 1px solid var(--border-color); padding: 15px; text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: auto; }
-        /* =========================================================
-           ADAPTACIÓN PARA DISPOSITIVOS MÓVILES (RESPONSIVE DESIGN)
-           ========================================================= */
         
-        /* Ajuste general para tablas en móviles (evita que se desborden de la pantalla) */
-        .panel-large, .table-container, table {
-            overflow-x: auto;
-        }
+        .panel-large, .table-container, table { overflow-x: auto; }
 
-        /* Pantallas medianas (Tablets) */
         @media (max-width: 1024px) {
             main { grid-template-columns: repeat(2, 1fr); }
             .kpi-container { grid-column: span 2; grid-template-columns: repeat(3, 1fr); }
@@ -112,34 +108,19 @@
             .panel-sidebar { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;}
             .panel-large[style*="grid-column: span 4"] { grid-column: span 2 !important; }
         }
-
-        /* Pantallas pequeñas (Teléfonos) */
         @media (max-width: 768px) {
             header { flex-direction: column; align-items: flex-start; gap: 12px; padding: 15px; }
             .system-status { flex-direction: column; align-items: flex-start; width: 100%; gap: 5px; }
-            .system-status span[style] { margin-left: 0 !important; }
-            
             main { display: flex; flex-direction: column; padding: 10px; margin: 15px auto; }
             .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 15px; }
-            
             .tabs-container { flex-wrap: wrap; }
             .tab-btn { flex: 1; min-width: 120px; text-align: center; font-size: 13px; padding: 10px; }
-            
             .panel-sidebar { display: flex; flex-direction: column; gap: 20px; }
-            
             .history-controls { flex-direction: column; align-items: stretch; gap: 15px; }
             .history-controls .form-group { width: 100%; margin-top: 0 !important; }
-            .history-controls div[style*="display: flex; gap: 5px;"] { justify-content: space-between; }
-            .history-controls button { flex: 1; }
-            
             .firebase-meta-grid { grid-template-columns: 1fr; gap: 10px; }
             .prediction-info { padding: 15px; }
-            .prediction-info h3 { font-size: 16px; }
-            
-            th, td { padding: 10px 8px; font-size: 13px; }
         }
-
-        /* Pantallas muy pequeñas (Teléfonos estrechos) */
         @media (max-width: 480px) {
             .kpi-container { grid-template-columns: 1fr; }
             .tab-btn { min-width: 100%; }
@@ -147,7 +128,6 @@
     </style>
 </head>
 <body>
-
     <header>
         <div class="header-title">
             <h1>Sistema de Monitoreo de Temperatura en Zonas Remotas</h1>
@@ -197,8 +177,11 @@
             </div>
 
             <div id="local-tab" class="tab-content active">
-                <div style="height: 280px; width: 100%; margin-top: 20px;">
-                    <canvas id="myChart"></canvas>
+                <div style="height: 280px; width: 100%; margin-top: 20px; position: relative;">
+                    <button onclick="if(myLineChart) myLineChart.resetZoom()" style="position: absolute; top: 0; right: 10px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; z-index: 10;">
+                        <i class="fa-solid fa-compress"></i> Resetear Zoom
+                    </button>
+                    <canvas id="myChart" style="touch-action: none;"></canvas>
                 </div>
             </div>
 
@@ -209,10 +192,11 @@
                     <div class="meta-item">Último Sync: <strong id="fb-last-sync">--:--:--</strong></div>
                 </div>
                 <div class="prediction-info">
+                    <div class="trend-badge" id="trend-historical"><i class="fa-solid fa-clock-rotate-left"></i> Tendencia (1h): -- °C</div>
                     <i class="fa-solid fa-chart-line" style="font-size: 32px; color: var(--predictive);"></i>
                     <h3 style="color: var(--text-primary);">Modelo de Predicción Térmica Activo</h3>
                     <p style="color: var(--text-secondary); font-size: 14px; max-width: 600px;">
-                        El sistema analiza los últimos datos almacenados en Firebase para calcular la tasa de incremento de temperatura (pendiente). Si el algoritmo detecta una tendencia al alza sostenida, estima el tiempo exacto en el que el motor alcanzará el umbral crítico de <strong id="pred-threshold-display">75°C</strong>.
+                        El sistema analiza los últimos datos almacenados en Firebase para calcular la tasa de incremento de temperatura (pendiente). Si el algoritmo detecta una tendencia al alza sostenida, estima el tiempo exacto en el que el motor alcanzará el umbral crítico de <strong id="pred-threshold-display">75°C</strong> y lo proyecta visualmente en la gráfica.
                     </p>
                     <div style="margin-top: 10px; font-family: monospace; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
                         Tasa de cambio actual: <strong id="pred-slope" style="color: var(--predictive);">0.00 °C/seg</strong>
@@ -220,7 +204,6 @@
                 </div>
             </div>
 
-            <!-- CONTENEDOR DE HISTORIAL MEJORADO -->
             <div id="history-tab" class="tab-content">
                 <div class="history-controls">
                     <div class="form-group">
@@ -274,6 +257,10 @@
                         </tbody>
                     </table>
                 </div>
+                <button class="btn-action btn-success" onclick="exportToCSV()" style="max-width: 200px; float: right;">
+                    <i class="fa-solid fa-file-csv"></i> Descargar Reporte CSV
+                </button>
+                <div style="clear: both;"></div>
             </div>
         </div>
 
@@ -344,14 +331,21 @@
 
         let fullDatabaseRecords = [];
         let isHistoryLoaded = false;
+        
+        // Variables para la proyección visual
+        let projectedFutureTime = null;
+        let projectedFutureTemp = null;
+        let notificationSent = false;
 
-        // ====================================================================
-        // CARGAR CONFIGURACIONES GUARDADAS
-        // ====================================================================
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
         function loadSavedParameters() {
             const savedThreshold = localStorage.getItem('lora_threshold');
             const savedInterval = localStorage.getItem('lora_interval');
-            
             if (savedThreshold) {
                 currentThreshold = parseFloat(savedThreshold);
                 document.getElementById('input-threshold').value = currentThreshold;
@@ -367,27 +361,23 @@
         function updateParameters() {
             const thresholdInput = document.getElementById('input-threshold').value;
             const intervalSelect = document.getElementById('select-interval').value;
-            
             currentThreshold = parseFloat(thresholdInput);
             samplingInterval = parseInt(intervalSelect);
             
-            // GUARDAR EN MEMORIA DEL NAVEGADOR
             localStorage.setItem('lora_threshold', currentThreshold);
             localStorage.setItem('lora_interval', samplingInterval);
-            
             document.getElementById('kpi-interval').innerText = samplingInterval + " s";
             document.getElementById('pred-threshold-display').innerText = currentThreshold + "°C";
             addLog(`PARÁMETROS GUARDADOS: Umbral en ${currentThreshold}°C | Ciclo: ${samplingInterval}s`, 'warn');
             
+            notificationSent = false; // Resetear notificaciones al cambiar umbral
+            
             if(historyData.length > 0) {
                 evaluateSystemStatus(historyData[historyData.length - 1]);
-                renderChart();
                 calcularPrediccion();
+                renderChart();
             }
-            
             if(isHistoryLoaded) renderHistoryTable();
-            
-            // Reiniciar el ciclo de lectura con el nuevo intervalo
             startFetching();
         }
 
@@ -416,11 +406,24 @@
         function evaluateSystemStatus(currentTemp) {
             const modbusStatus = document.getElementById('modbus-40003');
             if (currentTemp >= currentThreshold) {
-                modbusStatus.innerText = "3"; return true;
+                modbusStatus.innerText = "3"; 
+                // Disparar Notificación Push Activa
+                if (!notificationSent && "Notification" in window && Notification.permission === "granted") {
+                    new Notification("¡ALERTA TÉRMICA - Mantenimiento Requerido!", {
+                        body: `El motor ha superado el umbral crítico alcanzando ${currentTemp}°C.`,
+                        icon: "https://cdn-icons-png.flaticon.com/512/1076/1076335.png"
+                    });
+                    notificationSent = true;
+                }
+                return true;
             } else if (currentTemp >= (currentThreshold - 5)) {
-                modbusStatus.innerText = "2"; return false;
+                modbusStatus.innerText = "2"; 
+                notificationSent = false;
+                return false;
             } else {
-                modbusStatus.innerText = "1"; return false;
+                modbusStatus.innerText = "1"; 
+                notificationSent = false;
+                return false;
             }
         }
 
@@ -438,7 +441,7 @@
 
         function forceReloadHistory() {
             const tbody = document.getElementById('history-tbody');
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Descargando base de datos completa...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Descargando base de datos...</td></tr>';
             
             fetch(FIREBASE_FULL_HISTORY_URL)
                 .then(res => res.json())
@@ -461,16 +464,35 @@
                     }
                     isHistoryLoaded = true;
                     renderHistoryTable();
-                    addLog(`Historial descargado: ${fullDatabaseRecords.length} registros cargados.`, 'info');
+                    calcularTendenciaHistorica();
+                    addLog(`Historial descargado: ${fullDatabaseRecords.length} registros.`, 'info');
                 })
                 .catch(err => {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error al cargar historial: ${err.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
                 });
         }
 
-        // ====================================================================
-        // LIMPIAR Y APLICAR FILTROS DE FECHA Y HORA
-        // ====================================================================
+        function calcularTendenciaHistorica() {
+            if(fullDatabaseRecords.length < 50) return;
+            const ahora = new Date();
+            const haceUnaHora = new Date(ahora.getTime() - 60 * 60 * 1000);
+            const haceDosHoras = new Date(ahora.getTime() - 120 * 60 * 1000);
+            
+            let tempsHoraActual = fullDatabaseRecords.filter(r => r._internalDate >= haceUnaHora).map(r => parseFloat(r.temperatura || r.temp || r.field1));
+            let tempsHoraAnterior = fullDatabaseRecords.filter(r => r._internalDate >= haceDosHoras && r._internalDate < haceUnaHora).map(r => parseFloat(r.temperatura || r.temp || r.field1));
+            
+            if(tempsHoraActual.length > 0 && tempsHoraAnterior.length > 0) {
+                let promActual = tempsHoraActual.reduce((a,b) => a+b, 0) / tempsHoraActual.length;
+                let promAnterior = tempsHoraAnterior.reduce((a,b) => a+b, 0) / tempsHoraAnterior.length;
+                let delta = promActual - promAnterior;
+                
+                let badge = document.getElementById('trend-historical');
+                badge.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Tendencia (1h): ${delta > 0 ? '+' : ''}${delta.toFixed(1)} °C`;
+                if(delta > 3) { badge.style.color = "var(--danger)"; badge.style.background = "#fee2e2"; }
+                else if (delta < 0) { badge.style.color = "var(--success)"; badge.style.background = "#dcfce7"; }
+            }
+        }
+
         function clearFilters() {
             document.getElementById('filter-start-date').value = '';
             document.getElementById('filter-start-time').value = '';
@@ -482,30 +504,17 @@
 
         function renderHistoryTable() {
             if (!isHistoryLoaded) return;
-            
             const tbody = document.getElementById('history-tbody');
-            
             const startDateStr = document.getElementById('filter-start-date').value;
             const startTimeStr = document.getElementById('filter-start-time').value || '00:00:00';
-            
             const endDateStr = document.getElementById('filter-end-date').value;
             const endTimeStr = document.getElementById('filter-end-time').value || '23:59:59';
-            
             const onlyAlerts = document.getElementById('filter-alerts').checked;
 
-            // Ensamblaje inteligente de Fechas + Horas
             let startDate = null;
-            if(startDateStr) {
-                // Se asegura que la hora tenga los segundos para el parseo correcto
-                let timeFmt = startTimeStr.length === 5 ? startTimeStr + ':00' : startTimeStr;
-                startDate = new Date(`${startDateStr}T${timeFmt}`);
-            }
-
+            if(startDateStr) startDate = new Date(`${startDateStr}T${startTimeStr.length === 5 ? startTimeStr + ':00' : startTimeStr}`);
             let endDate = null;
-            if(endDateStr) {
-                let timeFmt = endTimeStr.length === 5 ? endTimeStr + ':59' : endTimeStr;
-                endDate = new Date(`${endDateStr}T${timeFmt}`);
-            }
+            if(endDateStr) endDate = new Date(`${endDateStr}T${endTimeStr.length === 5 ? endTimeStr + ':59' : endTimeStr}`);
 
             tbody.innerHTML = '';
             let rowsRendered = 0;
@@ -521,154 +530,164 @@
                 if (endDate && dateObj > endDate) continue;
 
                 let statusHtml = `<span class="status-badge status-normal"><i class="fa-solid fa-check"></i> Normal</span>`;
-                if (temp >= currentThreshold) {
-                    statusHtml = `<span class="status-badge status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Crítico</span>`;
-                } else if (temp >= (currentThreshold - 5)) {
-                    statusHtml = `<span class="status-badge status-warning"><i class="fa-solid fa-bell"></i> Advertencia</span>`;
-                }
+                if (temp >= currentThreshold) statusHtml = `<span class="status-badge status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Crítico</span>`;
+                else if (temp >= (currentThreshold - 5)) statusHtml = `<span class="status-badge status-warning"><i class="fa-solid fa-bell"></i> Advertencia</span>`;
 
-                // El navegador automáticamente ajusta el toLocaleDateString a DD/MM/YYYY según tu región (Colombia)
                 const dateStr = dateObj.toLocaleDateString('es-CO');
                 const timeStr = dateObj.toLocaleTimeString('es-CO');
 
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${dateStr}</td>
-                    <td>${timeStr}</td>
-                    <td style="font-weight: 600; color: ${temp >= currentThreshold ? 'var(--danger)' : 'inherit'};">${temp.toFixed(1)} °C</td>
-                    <td>${rssi} dBm</td>
-                    <td>${statusHtml}</td>
-                `;
+                tr.innerHTML = `<td>${dateStr}</td><td>${timeStr}</td><td style="font-weight: 600; color: ${temp >= currentThreshold ? 'var(--danger)' : 'inherit'};">${temp.toFixed(1)} °C</td><td>${rssi} dBm</td><td>${statusHtml}</td>`;
                 tbody.appendChild(tr);
                 rowsRendered++;
             }
+            if(rowsRendered === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No se encontraron registros.</td></tr>';
+        }
 
-            if(rowsRendered === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No se encontraron registros con los filtros actuales.</td></tr>';
+        // Exportar a CSV para Reportes de Mantenimiento
+        function exportToCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Fecha,Hora,Temperatura (C),Nivel de Senal RSSI (dBm),Estado del Motor\n";
+            const rows = document.querySelectorAll("#history-table tbody tr");
+            
+            if (rows.length === 1 && rows[0].innerText.includes("Haz clic en")) {
+                alert("Por favor, cargue el historial primero haciendo clic en la pestaña."); return;
+            }
+
+            rows.forEach(row => {
+                const cols = row.querySelectorAll("td");
+                if(cols.length === 5) {
+                    const rowData = Array.from(cols).map(c => `"${c.innerText.replace(" °C","").replace(" dBm","").trim()}"`).join(",");
+                    csvContent += rowData + "\n";
+                }
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Reporte_Termico_${new Date().toLocaleDateString('es-CO').replace(/\//g,'-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function calcularPrediccion() { 
+            const predKpi = document.getElementById('kpi-prediction'); 
+            const slopeDisplay = document.getElementById('pred-slope');
+            const WINDOW_SIZE = 20; 
+            const recentData = historyData.slice(-WINDOW_SIZE);
+            projectedFutureTime = null; projectedFutureTemp = null; // Limpiar proyección
+
+            if(recentData.length < 3) { 
+                predKpi.innerText = "CALCULANDO"; return; 
+            }
+
+            let n = recentData.length; 
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for(let i = 0; i < n; i++) { 
+                let x = i * samplingInterval; 
+                let y = recentData[i]; 
+                sumX += x; sumY += y; sumXY += x * y; sumXX += x * x; 
+            }
+
+            let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
+
+            if(slope <= 0.001) { 
+                predKpi.innerText = "ESTABLE"; 
+                predKpi.style.color = "var(--success)"; 
+            } else {
+                let currentTemp = recentData[recentData.length - 1]; 
+                let tempRestante = currentThreshold - currentTemp;
+                
+                if (tempRestante <= 0) { 
+                    predKpi.innerText = "CRÍTICO"; 
+                    predKpi.style.color = "var(--danger)"; 
+                } else {
+                     let segundosAlUmbral = tempRestante / slope;
+                     let minutos = (segundosAlUmbral / 60).toFixed(1);
+                     predKpi.innerText = `~${minutos} min`; 
+                     predKpi.style.color = "var(--predictive)";
+                     
+                     // Generar datos para la proyección visual en la gráfica
+                     if (minutos < 60) {
+                         let futureDate = new Date(new Date().getTime() + (segundosAlUmbral * 1000));
+                         projectedFutureTime = futureDate.toTimeString().substring(0, 8);
+                         projectedFutureTemp = currentThreshold;
+                     }
+                     
+                     if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
+                }
             }
         }
 
         function renderChart() {
             if (historyData.length === 0) return; 
             const ctx = document.getElementById('myChart').getContext('2d');
-            const renderData = historyData; const renderLabels = timeLabels;
-            const lastTemp = renderData[renderData.length - 1] || 0;
-            let lineColor = '#0284c7'; let bgColor = 'rgba(2, 132, 199, 0.1)';
+            
+            // Construir los arreglos con proyección
+            let renderLabels = [...timeLabels];
+            let mainData = [...historyData];
+            let projData = new Array(historyData.length).fill(null);
+            
+            if (projectedFutureTime && projectedFutureTemp) {
+                renderLabels.push(projectedFutureTime);
+                mainData.push(null);
+                projData[projData.length - 1] = historyData[historyData.length - 1]; // Conectar el último punto real
+                projData.push(projectedFutureTemp); // Con el futuro
+            }
+            
+            let gradientLine = ctx.createLinearGradient(0, 0, 0, 280);
+            gradientLine.addColorStop(0, '#ef4444'); gradientLine.addColorStop(0.4, '#f59e0b'); gradientLine.addColorStop(1, '#0ea5e9'); 
 
-            if (lastTemp >= currentThreshold) { lineColor = '#dc2626'; bgColor = 'rgba(220, 38, 38, 0.1)'; }
-            else if (lastTemp >= (currentThreshold - 5)) { lineColor = '#ca8a04'; bgColor = 'rgba(202, 138, 4, 0.1)'; }
+            let gradientFill = ctx.createLinearGradient(0, 0, 0, 280);
+            gradientFill.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); gradientFill.addColorStop(0.5, 'rgba(245, 158, 11, 0.15)'); gradientFill.addColorStop(1, 'rgba(14, 165, 233, 0.0)');
 
-            const minTemp = Math.min(...renderData); const maxTemp = Math.max(...renderData);
-            const dynamicMin = minTemp - 2; const dynamicMax = Math.max(maxTemp + 2, currentThreshold + 2); 
+            const minTemp = Math.min(...historyData); const maxTemp = Math.max(...historyData);
+            const dynamicMin = Math.max(0, minTemp - 5); const dynamicMax = Math.max(maxTemp + 5, currentThreshold + 5); 
+            
+            const fechaActual = new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
+
+            const datasetReal = { 
+                label: 'Temperatura Real', data: mainData, borderColor: gradientLine, backgroundColor: gradientFill, 
+                borderWidth: 4, fill: true, tension: 0.5, pointRadius: 0, pointHitRadius: 30, pointHoverRadius: 8, 
+                pointHoverBackgroundColor: '#0f172a', pointHoverBorderColor: gradientLine, pointHoverBorderWidth: 3 
+            };
+
+            const datasetProyectado = {
+                label: 'Proyección Predictiva', data: projData, borderColor: '#8b5cf6', borderDash: [5, 5], 
+                borderWidth: 3, fill: false, tension: 0, pointRadius: 4, pointBackgroundColor: '#8b5cf6'
+            };
+
+            Chart.defaults.elements.line.borderCapStyle = 'round';
+            Chart.defaults.elements.line.borderJoinStyle = 'round';
 
             if (myLineChart) {
-                myLineChart.data.labels = renderLabels; myLineChart.data.datasets[0].data = renderData;
-                myLineChart.data.datasets[0].borderColor = lineColor; myLineChart.data.datasets[0].backgroundColor = bgColor;
+                myLineChart.data.labels = renderLabels; 
+                myLineChart.data.datasets = [datasetReal, datasetProyectado];
                 myLineChart.options.scales.y.suggestedMin = dynamicMin; myLineChart.options.scales.y.suggestedMax = dynamicMax;
+                myLineChart.options.plugins.title.text = `REGISTROS DEL DÍA: ${fechaActual}`;
                 myLineChart.update('none'); 
             } else {
                 myLineChart = new Chart(ctx, {
-                    type: 'line', 
-                    data: { labels: renderLabels, datasets: [{ label: 'Temperatura (°C)', data: renderData, borderColor: lineColor, backgroundColor: bgColor, borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#ffffff', pointBorderColor: lineColor, pointRadius: 4, pointHoverRadius: 6 }] },
-                    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, scales: { y: { beginAtZero: false, suggestedMin: dynamicMin, suggestedMax: dynamicMax } }, plugins: { zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' } } } }
+                    type: 'line', data: { labels: renderLabels, datasets: [datasetReal, datasetProyectado] },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false, layout: { padding: { left: 0, right: 10, top: 10, bottom: 0 } },
+                        interaction: { mode: 'index', intersect: false }, animation: { duration: 1000, easing: 'easeOutQuart' }, 
+                        scales: { 
+                            x: { grid: { display: false, drawBorder: false }, ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#94a3b8', maxTicksLimit: 7 } },
+                            y: { beginAtZero: false, suggestedMin: dynamicMin, suggestedMax: dynamicMax, grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false }, ticks: { font: { family: "'Inter', sans-serif", weight: '600', size: 12 }, color: '#64748b', padding: 15, callback: function(v) { return v + '°'; } } } 
+                        }, 
+                        plugins: { 
+                            legend: { display: false }, 
+                            tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.85)', titleFont: { family: "'Inter', sans-serif", size: 11, weight: '600' }, titleColor: '#94a3b8', bodyFont: { family: "'Inter', sans-serif", size: 16, weight: 'bold' }, bodyColor: '#ffffff', padding: 16, cornerRadius: 12, displayColors: true, borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 },
+                            title: { display: true, text: `REGISTROS DEL DÍA: ${fechaActual}`, font: { size: 11, family: "'Inter', sans-serif", weight: '700', letterSpacing: 1 }, color: '#94a3b8', align: 'start', padding: { bottom: 25 } },
+                            zoom: { pan: { enabled: true, mode: 'x', threshold: 5 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' } } 
+                        } 
+                    }
                 });
             }
         }
 
-function calcularPrediccion() { 
-    const predKpi = document.getElementById('kpi-prediction'); 
-    const slopeDisplay = document.getElementById('pred-slope');
-
-    // 1. Ampliación de la ventana móvil (aprox 10 min de inercia)
-    const WINDOW_SIZE = 40; 
-    
-    // Validar si hay suficientes datos
-    if(historyData.length < WINDOW_SIZE) { 
-        predKpi.innerText = "CALCULANDO"; 
-        slopeDisplay.innerText = "--- °C/seg";
-        return; 
-    }
-
-    // Extraer datos y etiquetas de tiempo (Timestamps) más recientes
-    const rawData = historyData.slice(-WINDOW_SIZE);
-    const rawTimes = timeLabels.slice(-WINDOW_SIZE);
-
-    // 2. Aplicar Filtro de Suavizado (Media Móvil Simple - SMA de 5 muestras)
-    const SMA_WINDOW = 5;
-    let smoothedData = [];
-    
-    // Suavizado: calcula el promedio de las últimas 'SMA_WINDOW' muestras para cada punto
-    for (let i = 0; i < rawData.length; i++) {
-        if (i < SMA_WINDOW - 1) {
-            smoothedData.push(rawData[i]); // No hay suficientes datos para la ventana SMA inicial
-        } else {
-            let sum = 0;
-            for (let j = 0; j < SMA_WINDOW; j++) {
-                sum += rawData[i - j];
-            }
-            smoothedData.push(sum / SMA_WINDOW);
-        }
-    }
-
-    // 3. Preparación de variables para la Regresión Lineal por Mínimos Cuadrados
-    let n = smoothedData.length; 
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    
-    // Usar la primera etiqueta de tiempo de la ventana como tiempo 0 (T0)
-    // Parseamos la fecha asumiendo formato HH:MM:SS para convertlo a un objeto Date del día actual
-    const baseTimeStr = rawTimes[0];
-    const baseDate = new Date(`1970-01-01T${baseTimeStr}Z`);
-    
-    for(let i = 0; i < n; i++) {
-        // Cálculo de Delta T real en lugar de índice ideal
-        const currentTimeStr = rawTimes[i];
-        const currentDate = new Date(`1970-01-01T${currentTimeStr}Z`);
-        
-        // Manejo básico de cambio de día (si cruza la medianoche en la ventana)
-        if(currentDate < baseDate) {
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-        
-        let x = (currentDate.getTime() - baseDate.getTime()) / 1000; // Delta T en segundos
-        let y = smoothedData[i]; 
-        
-        sumX += x; 
-        sumY += y; 
-        sumXY += x * y; 
-        sumXX += x * x; 
-    }
-
-    // Calcular pendiente (Tasa de cambio)
-    let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    slopeDisplay.innerText = `${slope.toFixed(4)} °C/seg`;
-
-    let currentTemp = smoothedData[smoothedData.length - 1]; 
-
-    // 4. Rango Muerto y Lógica de Predicción
-    // El motor debe superar los 50°C para empezar a estimar calentamientos peligrosos
-    if (currentTemp <= 50) {
-        predKpi.innerText = "NO APLICA"; 
-        predKpi.style.color = "var(--text-secondary)"; 
-    } else {
-        if(slope <= 0.001) { 
-            predKpi.innerText = "ESTABLE"; 
-            predKpi.style.color = "var(--success)"; 
-        } else {
-            let tempRestante = currentThreshold - currentTemp;
-            
-            if (tempRestante <= 0) { 
-                predKpi.innerText = "CRÍTICO"; 
-                predKpi.style.color = "var(--danger)"; 
-            } else {
-                 let minutos = ((tempRestante / slope) / 60).toFixed(1);
-                 predKpi.innerText = `~${minutos} min`; 
-                 predKpi.style.color = "var(--predictive)";
-                 
-                 if(minutos < 5) addLog(`PREDICCIÓN: El sistema alcanzará estado crítico en menos de ${minutos} min.`, 'predict');
-            }
-        }
-    }
-}
         function readRealDataFromFirebase() {
             fetch(FIREBASE_REALTIME_URL).then(response => response.json()).then(data => {
                 if (data) {
@@ -700,8 +719,9 @@ function calcularPrediccion() {
                         const record = data[key]; let tempValue = parseFloat(record.temperatura || record.temp || record.field1) || 0.0;
                         if (tempValue > -100) {
                             historyData.push(tempValue);
-                            let timeStr = record.timestamp ? new Date(record.timestamp).toTimeString().substring(0, 8) : new Date(now.getTime() - ((totalRecords - 1 - index) * samplingInterval * 1000)).toTimeString().substring(0, 8);
-                            timeLabels.push(timeStr);
+                            let dateObj = record.timestamp ? new Date(record.timestamp) : decodeFirebaseKeyToDate(key);
+                            if (!dateObj || isNaN(dateObj.getTime())) dateObj = new Date();
+                            timeLabels.push(dateObj.toTimeString().substring(0, 8));
                         }
                     });
 
@@ -713,7 +733,7 @@ function calcularPrediccion() {
                         addLog(`¡ALERTA CRÍTICA! Se perdió comunicación con el esclavo Modbus.`, 'danger');
                     } else {
                         globalStatusDot.style.backgroundColor = 'var(--success)'; globalStatusText.innerText = "ESTADO: SINCRONIZADO CON GOOGLE FIREBASE"; globalStatusText.style.color = "inherit"; globalStatusText.style.fontWeight = "normal"; cloudStatusKpi.innerText = "CONECTADO"; cloudStatusKpi.style.color = "var(--success)"; kpiTemp.innerText = `${currentTemp.toFixed(1)} °C`; kpiTemp.style.color = "var(--text-primary)"; document.getElementById('modbus-40001').innerText = Math.round(currentTemp * 10);
-                        let isCritical = evaluateSystemStatus(currentTemp); renderChart(); calcularPrediccion();
+                        let isCritical = evaluateSystemStatus(currentTemp); calcularPrediccion(); renderChart(); 
                         addLog(`[Firebase REST API] OK. Temp: ${currentTemp.toFixed(1)}°C | RSSI: ${currentRssi}dBm`, "cloud");
                         if (isCritical) addLog(`ALERTA TÉRMICA: Sensor excede límite configurado de ${currentThreshold}°C`, 'danger');
                     }
@@ -732,6 +752,7 @@ function calcularPrediccion() {
         // ====================================================================
         // INICIO DEL SISTEMA
         // ====================================================================
+        requestNotificationPermission(); // Permiso para la etapa "Acción" de las alertas 
         loadSavedParameters();
         readRealDataFromFirebase();
         startFetching();
